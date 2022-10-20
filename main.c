@@ -34,7 +34,7 @@ int benchmark_main(void)
 }
 
 
-
+extern int wifi_scan(void);
 //====================================================================================
 // My main
 //====================================================================================
@@ -58,9 +58,17 @@ int main() {
         printf("Starting in %d abs:%d\n",n, get_absolute_time());
     }
 
-    //benchmark_main();
-    adc_main();
-    printf("After abs time: %lld\n", get_absolute_time());
+    while (1){
+        puts("\nCommands:");
+        puts("a\t: Adc mode");
+        puts("w\t: Wifi scan");
+
+        char c = getchar();
+        printf("%c (%d)", c,c);
+        if (c == 'a') adc_main();
+        if (c == 'w') wifi_scan();
+    }
+
 
     int n=0;
     while (1) {

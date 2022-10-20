@@ -20,6 +20,7 @@ static void printhelp() {
     puts("m\t: Many samples individually");
     puts("t\t: Read temperature");
     puts("w\t: Wiggle pins");
+    puts("x\t: Exit");
 }
 
 //void __not_in_flash_func(adc_capture)(uint16_t *buf, size_t count) {
@@ -129,6 +130,9 @@ int adc_main(void) {
 
                 break;
             }
+            case 'x': 
+                return 0;
+
 
             case '\n':
             case '\r':
