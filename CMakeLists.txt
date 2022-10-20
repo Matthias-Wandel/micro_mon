@@ -9,6 +9,7 @@ pico_sdk_init()
 add_executable(my_adc
     main.c
     adc.c
+    wifi_scan.c
 )
 pico_enable_stdio_usb(my_adc 1)
 

@@ -2,15 +2,14 @@
 #include "hardware/gpio.h"
 #include "hardware/adc.h"
 #include "pico/binary_info.h"
+#include "pico/cyw43_arch.h"
 
 #include <stdio.h>
 #include <memory.h>
 #include <time.h>
 
-int state = 0;
-const uint LED_PIN = 25;
-
 extern int adc_main(void);
+extern int wifi_scan(void);
 
 //====================================================================================
 // Benchmark code
@@ -33,8 +32,6 @@ int benchmark_main(void)
     return 0;
 }
 
-
-extern int wifi_scan(void);
 //====================================================================================
 // My main
 //====================================================================================
@@ -42,18 +39,19 @@ extern int wifi_scan(void);
 int main() {
 
     bi_decl(bi_program_description("This is a test binary."));
-    bi_decl(bi_1pin_with_name(LED_PIN, "On-board LED"));
 
     stdio_init_all();
-
-    gpio_init(LED_PIN);
-    gpio_set_dir(LED_PIN, GPIO_OUT);
+    
+    if (cyw43_arch_init()) {
+        printf("failed to initialise cyw43\n");
+        return 1;
+    }
 
     for (int n=7;n>=0;n--){
         sleep_ms(500);
-        gpio_put(LED_PIN, 1);
+        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
         sleep_ms(500);
-        gpio_put(LED_PIN, 0);
+        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
         //printf("adc = %d",adc_read())
         printf("Starting in %d abs:%d\n",n, get_absolute_time());
     }
@@ -72,16 +70,11 @@ int main() {
 
     int n=0;
     while (1) {
-        gpio_put(LED_PIN, 0);
-        sleep_ms(150);
-        gpio_put(LED_PIN, 1);
-        sleep_ms(150);
-        gpio_put(LED_PIN, 0);
-        sleep_ms(150);
-        gpio_put(LED_PIN, 1);
         printf("After iteration %d\n",n++);
-
-        sleep_ms(500);
+        sleep_ms(900);
+        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+        sleep_ms(100);
+        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
     }
 }
 
