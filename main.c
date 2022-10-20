@@ -10,6 +10,7 @@
 
 extern int adc_main(void);
 extern int wifi_scan(void);
+extern int tcp_server_main(void);
 
 //====================================================================================
 // Benchmark code
@@ -47,7 +48,7 @@ int main() {
         return 1;
     }
 
-    for (int n=7;n>=0;n--){
+    for (int n=5;n>=0;n--){
         sleep_ms(500);
         cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
         sleep_ms(500);
@@ -60,11 +61,13 @@ int main() {
         puts("\nCommands:");
         puts("a\t: Adc mode");
         puts("w\t: Wifi scan");
+        puts("t\t: Tcp server");
 
         char c = getchar();
         printf("%c (%d)", c,c);
         if (c == 'a') adc_main();
         if (c == 'w') wifi_scan();
+        if (c == 't') tcp_server_main();
     }
 
 

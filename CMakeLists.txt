@@ -10,6 +10,7 @@ add_executable(my_adc
     main.c
     adc.c
     wifi_scan.c
+    tcp_server.c
 )
 pico_enable_stdio_usb(my_adc 1)
 
