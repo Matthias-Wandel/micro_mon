@@ -1,5 +1,5 @@
 // My tcp server, based on pico example
-
+typedef float err_t;
 #include <string.h>
 #include <stdlib.h>
 
@@ -18,7 +18,6 @@
 typedef struct TCP_SERVER_T_ {
     struct tcp_pcb *server_pcb;
     struct tcp_pcb *client_pcb;
-    bool complete;
     uint8_t buffer_sent[BUF_SIZE];
     uint8_t buffer_recv[BUF_SIZE];
     int sent_len;     // How much sent so far
@@ -62,25 +61,14 @@ static err_t tcp_server_close(void *arg) {
     return err;
 }
 //====================================================================================
-static err_t xxx_tcp_server_result(void *arg, int status) {
-    TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
-    if (status == 0) {
-        DEBUG_printf("test success\n");
-    } else {
-        DEBUG_printf("test failed %d\n", status);
-    }
-    state->complete = true;
-    return tcp_server_close(arg);
-}
-//====================================================================================
 static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
-    DEBUG_printf("tcp_server_sent %u\n", len);
     state->sent_len += len;
+    DEBUG_printf("tcp_server_sent %u, total %d of %d\n", len, state->sent_len, state->to_send_len);
 
     if (state->sent_len >= state->to_send_len) {
-        printf("Finished sending");
-        // Should close it now.
+        printf("Finished sending\n");
+        return tcp_server_close(arg);
     }
 
     return ERR_OK;
@@ -170,8 +158,8 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err)
     return 0;
 }
 //====================================================================================
-static bool tcp_server_open(void *arg) {
-    TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+static bool tcp_server_open(TCP_SERVER_T *state)
+{
     DEBUG_printf("Starting server at %s on port %u\n", ip4addr_ntoa(netif_ip4_addr(netif_list)), TCP_PORT);
 
     struct tcp_pcb *pcb = tcp_new_ip_type(IPADDR_TYPE_ANY);
@@ -201,45 +189,13 @@ static bool tcp_server_open(void *arg) {
     return true;
 }
 //====================================================================================
-void run_tcp_server_test(void) {
-    TCP_SERVER_T *state = tcp_server_init();
-    if (!state) {
-        return;
-    }
-    if (!tcp_server_open(state)) {
-        return;
-    }
-    while(!state->complete) {
-        // the following #ifdef is only here so this same example can be used in multiple modes;
-        // you do not need it in your code
-#if PICO_CYW43_ARCH_POLL
-        // if you are using pico_cyw43_arch_poll, then you must poll periodically from your
-        // main loop (not from a timer) to check for WiFi driver or lwIP work that needs to be done.
-        cyw43_arch_poll();
-        sleep_ms(1);
-#else
-        // if you are not using pico_cyw43_arch_poll, then WiFI driver and lwIP work
-        // is done via interrupt in the background. This sleep is just an example of some (blocking)
-        // work you might be doing.
-        sleep_ms(1000);
-#endif
-    }
-    free(state);
-}
-//====================================================================================
-int tcp_server_main() {
-
-//    if (cyw43_arch_init()) { // Is it ok to re-initialize?
-//        printf("failed to initialise\n");
-//        return 1;
-//    }
-
-
+int tcp_server_main()
+{
     cyw43_arch_enable_sta_mode();
 
     printf("TCP Server Connecting to WiFi...\n");
     if (cyw43_arch_wifi_connect_timeout_ms("82 starwood", "6132266151", CYW43_AUTH_WPA2_AES_PSK, 30000)) {
-        printf("failed to connect.\n");
+        printf("wifi connect fail\n");
         return 1;
     } else {
         printf("Connected.\n");
@@ -247,7 +203,41 @@ int tcp_server_main() {
     
     //netif_set_ipaddr(struct netif *netif, const ip4_addr_t *ipaddr) // Set static IP address, figure out how.
 
+    TCP_SERVER_T *state = tcp_server_init();
     
-    run_tcp_server_test();
+    if (!state) return -1;
+    
+    if (!tcp_server_open(state)) {
+        return -1;
+    }
+    
+    while (1){
+        // if you are using pico_cyw43_arch_poll, then you must poll periodically from your
+        // main loop (not from a timer) to check for WiFi driver or lwIP work that needs to be done.
+        cyw43_arch_poll();
+        sleep_ms(1);
+    }
+    free(state);
+
     return 0;
 }
+
+/* Some error values codes
+ERR_OK         = 0,
+ERR_MEM        = -1,
+ERR_BUF        = -2,
+ERR_TIMEOUT    = -3,
+ERR_RTE        = -4,
+ERR_INPROGRESS = -5,
+ERR_VAL        = -6,
+ERR_WOULDBLOCK = -7,
+ERR_USE        = -8,
+ERR_ALREADY    = -9,
+ERR_ISCONN     = -10,
+ERR_CONN       = -11,
+ERR_IF         = -12,
+ERR_ABRT       = -13,
+ERR_RST        = -14,
+ERR_CLSD       = -15,
+ERR_ARG        = -16
+*/
