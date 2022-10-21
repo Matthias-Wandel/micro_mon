@@ -138,7 +138,7 @@ err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
         // check it matches
         if (memcmp(state->buffer_sent, state->buffer_recv, BUF_SIZE) != 0) {
             DEBUG_printf("buffer mismatch\n");
-            return tcp_server_result(arg, -1);
+            return  (arg, -1);
         }
         DEBUG_printf("tcp_server_recv buffer ok\n");
 
@@ -246,10 +246,10 @@ void run_tcp_server_test(void) {
 //====================================================================================
 int tcp_server_main() {
 
-    if (cyw43_arch_init()) { // Is it ok to re-initialize?
-        printf("failed to initialise\n");
-        return 1;
-    }
+//    if (cyw43_arch_init()) { // Is it ok to re-initialize?
+//        printf("failed to initialise\n");
+//        return 1;
+//    }
 
 
     cyw43_arch_enable_sta_mode();
