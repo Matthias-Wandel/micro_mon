@@ -13,7 +13,7 @@
 #include "lwip/pbuf.h"
 #include "lwip/tcp.h"
 
-#define TCP_PORT 4242
+#define TCP_PORT 80
 #define DEBUG_printf printf
 #define BUF_SIZE 2048
 #define TEST_ITERATIONS 10
@@ -29,7 +29,7 @@ typedef struct TCP_SERVER_T_ {
     int recv_len;
     int run_count;
 } TCP_SERVER_T;
-
+//====================================================================================
 static TCP_SERVER_T* tcp_server_init(void) {
     TCP_SERVER_T *state = calloc(1, sizeof(TCP_SERVER_T));
     if (!state) {
@@ -38,7 +38,7 @@ static TCP_SERVER_T* tcp_server_init(void) {
     }
     return state;
 }
-
+//====================================================================================
 static err_t tcp_server_close(void *arg) {
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     err_t err = ERR_OK;
@@ -63,7 +63,7 @@ static err_t tcp_server_close(void *arg) {
     }
     return err;
 }
-
+//====================================================================================
 static err_t tcp_server_result(void *arg, int status) {
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     if (status == 0) {
@@ -74,7 +74,7 @@ static err_t tcp_server_result(void *arg, int status) {
     state->complete = true;
     return tcp_server_close(arg);
 }
-
+//====================================================================================
 static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     DEBUG_printf("tcp_server_sent %u\n", len);
@@ -89,28 +89,29 @@ static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
 
     return ERR_OK;
 }
-
+//====================================================================================
 err_t tcp_server_send_data(void *arg, struct tcp_pcb *tpcb)
 {
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     for(int i=0; i< BUF_SIZE; i++) {
-        state->buffer_sent[i] = rand();
+        state->buffer_sent[i] = 'x';
     }
-
+    strcpy(state->buffer_sent, "HTTP/1.1 200 OK\n Content-Length: 34\n\n<html><b>Hello world</b></html>1234567890");
+    int n_send = strlen(state->buffer_sent);
     state->sent_len = 0;
-    DEBUG_printf("Writing %ld bytes to client\n", BUF_SIZE);
+    printf("Writing %ld bytes to client\n", n_send);
     // this method is callback from lwIP, so cyw43_arch_lwip_begin is not required, however you
     // can use this method to cause an assertion in debug mode, if this method is called when
     // cyw43_arch_lwip_begin IS needed
     cyw43_arch_lwip_check();
-    err_t err = tcp_write(tpcb, state->buffer_sent, BUF_SIZE, TCP_WRITE_FLAG_COPY);
+    err_t err = tcp_write(tpcb, state->buffer_sent, n_send, TCP_WRITE_FLAG_COPY);
     if (err != ERR_OK) {
         DEBUG_printf("Failed to write data %d\n", err);
         return tcp_server_result(arg, -1);
     }
     return ERR_OK;
 }
-
+//====================================================================================
 err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     if (!p) {
@@ -121,7 +122,7 @@ err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
     // cyw43_arch_lwip_begin IS needed
     cyw43_arch_lwip_check();
     if (p->tot_len > 0) {
-        DEBUG_printf("tcp_server_recv %d/%d err %d\n", p->tot_len, state->recv_len, err);
+        printf("tcp_server_recv %d/%d err %d\n", p->tot_len, state->recv_len, err);
 
         // Receive the buffer
         const uint16_t buffer_left = BUF_SIZE - state->recv_len;
@@ -153,19 +154,19 @@ err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
     }
     return ERR_OK;
 }
-
+//====================================================================================
 static err_t tcp_server_poll(void *arg, struct tcp_pcb *tpcb) {
     DEBUG_printf("tcp_server_poll_fn\n");
     return tcp_server_result(arg, -1); // no response is an error?
 }
-
+//====================================================================================
 static void tcp_server_err(void *arg, err_t err) {
     if (err != ERR_ABRT) {
         DEBUG_printf("tcp_client_err_fn %d\n", err);
         tcp_server_result(arg, err);
     }
 }
-
+//====================================================================================
 static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err) {
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     if (err != ERR_OK || client_pcb == NULL) {
@@ -184,7 +185,7 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err)
 
     return tcp_server_send_data(arg, state->client_pcb);
 }
-
+//====================================================================================
 static bool tcp_server_open(void *arg) {
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     DEBUG_printf("Starting server at %s on port %u\n", ip4addr_ntoa(netif_ip4_addr(netif_list)), TCP_PORT);
@@ -193,7 +194,7 @@ static bool tcp_server_open(void *arg) {
     if (!pcb) {
         DEBUG_printf("failed to create pcb\n");
         return false;
-    }
+    } 
 
     err_t err = tcp_bind(pcb, NULL, TCP_PORT);
     if (err) {
@@ -215,7 +216,7 @@ static bool tcp_server_open(void *arg) {
 
     return true;
 }
-
+//====================================================================================
 void run_tcp_server_test(void) {
     TCP_SERVER_T *state = tcp_server_init();
     if (!state) {
@@ -242,8 +243,14 @@ void run_tcp_server_test(void) {
     }
     free(state);
 }
-
+//====================================================================================
 int tcp_server_main() {
+
+    if (cyw43_arch_init()) { // Is it ok to re-initialize?
+        printf("failed to initialise\n");
+        return 1;
+    }
+
 
     cyw43_arch_enable_sta_mode();
 
@@ -254,6 +261,9 @@ int tcp_server_main() {
     } else {
         printf("Connected.\n");
     }
+    
+    //netif_set_ipaddr(struct netif *netif, const ip4_addr_t *ipaddr) // Set static IP address, figure out how.
+
     
     run_tcp_server_test();
     return 0;

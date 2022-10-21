@@ -39,20 +39,20 @@ int benchmark_main(void)
 
 int main() {
 
-    bi_decl(bi_program_description("This is a test binary."));
+    bi_decl(bi_program_description("My do multiple things test program"));
 
     stdio_init_all();
     
-    if (cyw43_arch_init()) {
-        printf("failed to initialise cyw43\n");
-        return 1;
-    }
+//    if (cyw43_arch_init()) {
+//        printf("failed to initialise cyw43\n");
+//        return 1;
+//    }
 
     for (int n=5;n>=0;n--){
         sleep_ms(500);
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+//        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
         sleep_ms(500);
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+//        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
         //printf("adc = %d",adc_read())
         printf("Starting in %d abs:%d\n",n, get_absolute_time());
     }
@@ -81,6 +81,5 @@ int main() {
     }
 }
 
-//  Try wifi
 //  Try RS485 stuff?
 //

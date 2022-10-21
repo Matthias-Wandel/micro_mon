@@ -24,6 +24,12 @@ static int scan_result(void *env, const cyw43_ev_scan_result_t *result) {
     
 int wifi_scan() 
 {
+    
+    if (cyw43_arch_init()) { // Is it ok to re-initialize?
+        printf("failed to initialise\n");
+        return 1;
+    }
+
     cyw43_arch_enable_sta_mode();
 
     absolute_time_t scan_test = nil_time;
