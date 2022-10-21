@@ -1,8 +1,4 @@
-/**
- * Copyright (c) 2022 Raspberry Pi (Trading) Ltd.
- *
- * SPDX-License-Identifier: BSD-3-Clause
- */
+// My tcp server, based on pico example
 
 #include <string.h>
 #include <stdlib.h>
@@ -25,7 +21,8 @@ typedef struct TCP_SERVER_T_ {
     bool complete;
     uint8_t buffer_sent[BUF_SIZE];
     uint8_t buffer_recv[BUF_SIZE];
-    int sent_len;
+    int sent_len;     // How much sent so far
+    int to_send_len;  // How much to actually send.
     int recv_len;
     int run_count;
 } TCP_SERVER_T;
@@ -40,6 +37,7 @@ static TCP_SERVER_T* tcp_server_init(void) {
 }
 //====================================================================================
 static err_t tcp_server_close(void *arg) {
+    printf("Close tcp server\n");
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     err_t err = ERR_OK;
     if (state->client_pcb != NULL) {
@@ -64,7 +62,7 @@ static err_t tcp_server_close(void *arg) {
     return err;
 }
 //====================================================================================
-static err_t tcp_server_result(void *arg, int status) {
+static err_t xxx_tcp_server_result(void *arg, int status) {
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     if (status == 0) {
         DEBUG_printf("test success\n");
@@ -80,11 +78,9 @@ static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
     DEBUG_printf("tcp_server_sent %u\n", len);
     state->sent_len += len;
 
-    if (state->sent_len >= BUF_SIZE) {
-
-        // We should get the data back from the client
-        state->recv_len = 0;
-        DEBUG_printf("Waiting for buffer from client\n");
+    if (state->sent_len >= state->to_send_len) {
+        printf("Finished sending");
+        // Should close it now.
     }
 
     return ERR_OK;
@@ -96,31 +92,33 @@ err_t tcp_server_send_data(void *arg, struct tcp_pcb *tpcb)
     for(int i=0; i< BUF_SIZE; i++) {
         state->buffer_sent[i] = 'x';
     }
-    strcpy(state->buffer_sent, "HTTP/1.1 200 OK\n Content-Length: 34\n\n<html><b>Hello world</b></html>1234567890");
+    strcpy(state->buffer_sent, "HTTP/1.0 200 OK\r\nContent-Length: 31\r\n\r\n<html><b>Hello world</b></html>1234567890");
     int n_send = strlen(state->buffer_sent);
     state->sent_len = 0;
+    state->to_send_len = n_send;
     printf("Writing %ld bytes to client\n", n_send);
+    
     // this method is callback from lwIP, so cyw43_arch_lwip_begin is not required, however you
     // can use this method to cause an assertion in debug mode, if this method is called when
     // cyw43_arch_lwip_begin IS needed
     cyw43_arch_lwip_check();
     err_t err = tcp_write(tpcb, state->buffer_sent, n_send, TCP_WRITE_FLAG_COPY);
     if (err != ERR_OK) {
-        DEBUG_printf("Failed to write data %d\n", err);
-        return tcp_server_result(arg, -1);
+        DEBUG_printf("Write error %d\n", err);
     }
-    return ERR_OK;
+    return err;
 }
 //====================================================================================
 err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     if (!p) {
-        return tcp_server_result(arg, -1);
+        return -1;
     }
     // this method is callback from lwIP, so cyw43_arch_lwip_begin is not required, however you
     // can use this method to cause an assertion in debug mode, if this method is called when
     // cyw43_arch_lwip_begin IS needed
     cyw43_arch_lwip_check();
+    int got_was = state->recv_len;
     if (p->tot_len > 0) {
         printf("tcp_server_recv %d/%d err %d\n", p->tot_len, state->recv_len, err);
 
@@ -131,39 +129,26 @@ err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
         tcp_recved(tpcb, p->tot_len);
     }
     pbuf_free(p);
-
-    // Have we have received the whole buffer
-    if (state->recv_len == BUF_SIZE) {
-
-        // check it matches
-        if (memcmp(state->buffer_sent, state->buffer_recv, BUF_SIZE) != 0) {
-            DEBUG_printf("buffer mismatch\n");
-            return  (arg, -1);
+    
+    printf("recv_len = %d\n",state->recv_len); // Check for request.
+    printf("Got: %s\n",state->buffer_recv);
+    if (got_was == 0){
+        if (memcmp("GET /", state->buffer_recv, 5) == 0){
+            return tcp_server_send_data(arg, state->client_pcb);
         }
-        DEBUG_printf("tcp_server_recv buffer ok\n");
-
-        // Test complete?
-        state->run_count++;
-        if (state->run_count >= TEST_ITERATIONS) {
-            tcp_server_result(arg, 0);
-            return ERR_OK;
-        }
-
-        // Send another buffer
-        return tcp_server_send_data(arg, state->client_pcb);
     }
+
     return ERR_OK;
 }
 //====================================================================================
 static err_t tcp_server_poll(void *arg, struct tcp_pcb *tpcb) {
     DEBUG_printf("tcp_server_poll_fn\n");
-    return tcp_server_result(arg, -1); // no response is an error?
+    return -1; // no response is an error?
 }
 //====================================================================================
 static void tcp_server_err(void *arg, err_t err) {
     if (err != ERR_ABRT) {
         DEBUG_printf("tcp_client_err_fn %d\n", err);
-        tcp_server_result(arg, err);
     }
 }
 //====================================================================================
@@ -171,7 +156,6 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err)
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     if (err != ERR_OK || client_pcb == NULL) {
         DEBUG_printf("Failure in accept\n");
-        tcp_server_result(arg, err);
         return ERR_VAL;
     }
     DEBUG_printf("Client connected\n");
@@ -183,7 +167,7 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err)
     tcp_poll(client_pcb, tcp_server_poll, POLL_TIME_S * 2);
     tcp_err(client_pcb, tcp_server_err);
 
-    return tcp_server_send_data(arg, state->client_pcb);
+    return 0;
 }
 //====================================================================================
 static bool tcp_server_open(void *arg) {
@@ -223,7 +207,6 @@ void run_tcp_server_test(void) {
         return;
     }
     if (!tcp_server_open(state)) {
-        tcp_server_result(state, -1);
         return;
     }
     while(!state->complete) {
