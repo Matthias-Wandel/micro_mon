@@ -15,44 +15,31 @@
 #define POLL_TIME_S 5
 
 typedef struct TCP_SERVER_T_ {
-    struct tcp_pcb *server_pcb; // Just has the4 IP address
-    struct tcp_pcb *client_pcb; // Just has the4 IP address
-    uint8_t buffer_sent[BUF_SIZE];
-    uint8_t buffer_recv[BUF_SIZE];
-    int sent_len;     // How much sent so far
-    int to_send_len;  // How much to actually send.
-    int recv_len;
+    struct tcp_pcb *server_pcb; // A whole lot of internal state variables of lwip in there!
 } TCP_SERVER_T;
 
-/*
-typedef struct {
-	TCP_SERVER_T * Server
-    uint8_t SentBytes[BUF_SIZE];
-	int to_send_bytes;
-	int num_bytes_sent;
-	
-    uint8_t RecvBytes[BUF_SIZE];
-    int num_bytes_received;	
-} TCP_Connection;
-
 TCP_SERVER_T state; // Only one instance of tcp server, but multiple instances of connection.
-*/
 
-//====================================================================================
-static TCP_SERVER_T* tcp_server_init(void) {
-    TCP_SERVER_T *state = calloc(1, sizeof(TCP_SERVER_T));
-	printf("tcp_server_init()\n");
-    if (!state) {
-        DEBUG_printf("failed to allocate state\n");
-        return NULL;
-    }
-    return state;
-}
+
+typedef struct { // Tcp connection instance.
+	struct tcp_pcb *client_pcb; // A whole lot of internal state variables of lwip in there!
+    uint8_t SendBuffer[BUF_SIZE];
+	int n_to_send;
+	int n_sent;
+	
+    uint8_t RecvBuffer[BUF_SIZE];
+    int n_received;	
+} TCP_CONNECTION_T;
+
+
 //====================================================================================
 static err_t tcp_server_close(void *arg) {
     printf("tcp_server_close()\n");
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     err_t err = ERR_OK;
+	
+	// do we really need to close the connection if we close the server?
+	/*
     if (state->client_pcb != NULL) {
         tcp_arg(state->client_pcb, NULL);
         tcp_poll(state->client_pcb, NULL, 0);
@@ -67,8 +54,10 @@ static err_t tcp_server_close(void *arg) {
         }
         state->client_pcb = NULL;
     }
+	*/
+	
     if (state->server_pcb) {
-        tcp_arg(state->server_pcb, NULL);
+        //tcp_arg(state->server_pcb, NULL);
         tcp_close(state->server_pcb);
         state->server_pcb = NULL;
     }
@@ -76,37 +65,41 @@ static err_t tcp_server_close(void *arg) {
 }
 //====================================================================================
 static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
-    TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
-    state->sent_len += len;
-    DEBUG_printf("tcp_server_sent() %u, total %d of %d\n", len, state->sent_len, state->to_send_len);
+    TCP_CONNECTION_T *Conn = (TCP_CONNECTION_T *)arg;
+    Conn->n_sent += len;
+	
+    DEBUG_printf("tcp_server_sent() %u, total %d of %d\n", len, Conn->n_sent, Conn->n_to_send);
 
-    if (state->sent_len >= state->to_send_len) {
+    if (Conn->n_sent >= Conn->n_to_send) {
         printf("Finished sending, close tcp\n");
-        return tcp_close(arg);
-		state->recv_len = 0;
+		int r = tcp_close(arg);
+		free(Conn);
+		return r;
     }
 
     return ERR_OK;
 }
 //====================================================================================
-err_t tcp_server_send_data(void *arg, struct tcp_pcb *tpcb)
+err_t tcp_server_send_data(TCP_CONNECTION_T * Conn)
 {
-    TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
 	printf("tcp_server_send_data()\n");
-    for(int i=0; i< BUF_SIZE; i++) {
-        state->buffer_sent[i] = 'x';
-    }
-    strcpy(state->buffer_sent, "HTTP/1.0 200 OK\r\nContent-Length: 31\r\n\r\n<html><b>Hello world</b></html>1234567890");
-    int n_send = strlen(state->buffer_sent);
-    state->sent_len = 0;
-    state->to_send_len = n_send;
-    printf("Writing %ld bytes to client\n", n_send);
+	
+	{
+		// Make up some bogus data to send.
+		for(int i=0; i< BUF_SIZE; i++) {
+			Conn->SendBuffer[i] = 'x';
+		}
+		strcpy(Conn->SendBuffer, "HTTP/1.0 200 OK\r\nContent-Length: 31\r\n\r\n<html><b>Hello world</b></html>1234567890");
+		int n_send = strlen(Conn->SendBuffer);
+		Conn->n_to_send = n_send;
+		printf("Writing %ld bytes to client\n", n_send);
+	}
     
     // this method is callback from lwIP, so cyw43_arch_lwip_begin is not required, however you
     // can use this method to cause an assertion in debug mode, if this method is called when
     // cyw43_arch_lwip_begin IS needed
     cyw43_arch_lwip_check();
-    err_t err = tcp_write(tpcb, state->buffer_sent, n_send, TCP_WRITE_FLAG_COPY);
+    err_t err = tcp_write(Conn->client_pcb, Conn->SendBuffer, Conn->n_to_send, TCP_WRITE_FLAG_COPY);
     if (err != ERR_OK) {
         DEBUG_printf("Write error %d\n", err);
     }
@@ -114,7 +107,7 @@ err_t tcp_server_send_data(void *arg, struct tcp_pcb *tpcb)
 }
 //====================================================================================
 err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
-    TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+    TCP_CONNECTION_T *Conn = (TCP_CONNECTION_T*)arg;
 	printf("tcp_server_recv()\n");
     if (!p) {
         return -1;
@@ -123,23 +116,23 @@ err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
     // can use this method to cause an assertion in debug mode, if this method is called when
     // cyw43_arch_lwip_begin IS needed
     cyw43_arch_lwip_check();
-    int got_was = state->recv_len;
+    int got_was = Conn->n_received;
     if (p->tot_len > 0) {
-        printf("tcp_server_recv %d/%d err %d\n", p->tot_len, state->recv_len, err);
+        printf("tcp_server_recv %d/%d err %d\n", p->tot_len, Conn->n_received, err);
 
         // Receive the buffer
-        const uint16_t buffer_left = BUF_SIZE - state->recv_len;
-        state->recv_len += pbuf_copy_partial(p, state->buffer_recv + state->recv_len,
+        const uint16_t buffer_left = BUF_SIZE - Conn->n_received;
+        Conn->n_received += pbuf_copy_partial(p, Conn->RecvBuffer + Conn->n_received,
                                              p->tot_len > buffer_left ? buffer_left : p->tot_len, 0);
         tcp_recved(tpcb, p->tot_len);
     }
     pbuf_free(p);
     
-    printf("recv_len = %d\n",state->recv_len); // Check for request.
-    printf("Got: %s\n",state->buffer_recv);
+    printf("recv_len = %d\n",Conn->n_received); // Check for request.
+    printf("Got: %s\n",Conn->RecvBuffer);
     if (got_was == 0){
-        if (memcmp("GET /", state->buffer_recv, 5) == 0){
-            return tcp_server_send_data(arg, state->client_pcb);
+        if (memcmp("GET /", Conn->RecvBuffer, 5) == 0){
+            return tcp_server_send_data(Conn);
         }
     }
 
@@ -151,12 +144,13 @@ static err_t tcp_server_poll(void *arg, struct tcp_pcb *tpcb) {
     return -1; // no response is an error?
 }
 //====================================================================================
-static void tcp_server_err(void * arg, err_t err) {
-    TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+static void tcp_server_err(void * arg, err_t err) 
+{
+	printf("tcp_server_err() arg=%x, err=%d\n",(int)arg, err);
     if (err == ERR_RST){
         printf("Remote closed connection\n");
+		// But which connection?  Pointer to tcp server or connection?
 		err_t err = tcp_close(arg);
-		state->recv_len = 0;
         if (err != ERR_OK) DEBUG_printf("Close error %d\n", err);
     }else if (err != ERR_ABRT) {
         DEBUG_printf("tcp_client_err_fn %d\n", err);
@@ -173,8 +167,15 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err)
     }
     DEBUG_printf("Client connected\n");
 
-    state->client_pcb = client_pcb;
-    tcp_arg(client_pcb, state);
+    TCP_CONNECTION_T *Conn = calloc(1, sizeof(TCP_CONNECTION_T));
+	if (Conn){
+		printf("Failed to allocate for connection");
+		tcp_close(arg);
+	}
+	printf("Conn = %x",(int)Conn);
+	
+	Conn->client_pcb = client_pcb;
+    tcp_arg(client_pcb, Conn);
     tcp_sent(client_pcb, tcp_server_sent);
     tcp_recv(client_pcb, tcp_server_recv);
     tcp_poll(client_pcb, tcp_server_poll, POLL_TIME_S * 2);
@@ -183,7 +184,7 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err)
     return 0;
 }
 //====================================================================================
-static bool tcp_server_open(TCP_SERVER_T *state)
+static bool tcp_server_open()
 {
     DEBUG_printf("tcp_server_open() at %s on port %u\n", ip4addr_ntoa(netif_ip4_addr(netif_list)), TCP_PORT);
 
@@ -199,17 +200,15 @@ static bool tcp_server_open(TCP_SERVER_T *state)
         return false;
     }
 
-    state->server_pcb = tcp_listen_with_backlog(pcb, 1);
-    if (!state->server_pcb) {
+    state.server_pcb = tcp_listen_with_backlog(pcb, 1);
+    if (!state.server_pcb) {
         DEBUG_printf("failed to listen\n");
-        if (pcb) {
-            tcp_close(pcb);
-        }
+        tcp_close(pcb);
         return false;
     }
 
-    tcp_arg(state->server_pcb, state);
-    tcp_accept(state->server_pcb, tcp_server_accept);
+    tcp_arg(state.server_pcb, &state);
+    tcp_accept(state.server_pcb, tcp_server_accept);
 
     return true;
 }
@@ -228,11 +227,8 @@ int tcp_server_main()
     
     //netif_set_ipaddr(struct netif *netif, const ip4_addr_t *ipaddr) // Set static IP address, figure out how.
 
-    TCP_SERVER_T *state = tcp_server_init();
     
-    if (!state) return -1;
-    
-    if (!tcp_server_open(state)) {
+    if (!tcp_server_open(&state)) {
         return -1;
     }
     
@@ -242,7 +238,6 @@ int tcp_server_main()
         cyw43_arch_poll();
         sleep_ms(1);
     }
-    free(state);
 
     return 0;
 }
