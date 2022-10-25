@@ -1,5 +1,4 @@
 // My tcp server, based on pico example
-typedef float err_t;
 #include <string.h>
 #include <stdlib.h>
 
@@ -16,18 +15,33 @@ typedef float err_t;
 #define POLL_TIME_S 5
 
 typedef struct TCP_SERVER_T_ {
-    struct tcp_pcb *server_pcb;
-    struct tcp_pcb *client_pcb;
+    struct tcp_pcb *server_pcb; // Just has the4 IP address
+    struct tcp_pcb *client_pcb; // Just has the4 IP address
     uint8_t buffer_sent[BUF_SIZE];
     uint8_t buffer_recv[BUF_SIZE];
     int sent_len;     // How much sent so far
     int to_send_len;  // How much to actually send.
     int recv_len;
-    int run_count;
 } TCP_SERVER_T;
+
+/*
+typedef struct {
+	TCP_SERVER_T * Server
+    uint8_t SentBytes[BUF_SIZE];
+	int to_send_bytes;
+	int num_bytes_sent;
+	
+    uint8_t RecvBytes[BUF_SIZE];
+    int num_bytes_received;	
+} TCP_Connection;
+
+TCP_SERVER_T state; // Only one instance of tcp server, but multiple instances of connection.
+*/
+
 //====================================================================================
 static TCP_SERVER_T* tcp_server_init(void) {
     TCP_SERVER_T *state = calloc(1, sizeof(TCP_SERVER_T));
+	printf("tcp_server_init()\n");
     if (!state) {
         DEBUG_printf("failed to allocate state\n");
         return NULL;
@@ -36,7 +50,7 @@ static TCP_SERVER_T* tcp_server_init(void) {
 }
 //====================================================================================
 static err_t tcp_server_close(void *arg) {
-    printf("Close tcp server\n");
+    printf("tcp_server_close()\n");
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     err_t err = ERR_OK;
     if (state->client_pcb != NULL) {
@@ -64,11 +78,12 @@ static err_t tcp_server_close(void *arg) {
 static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     state->sent_len += len;
-    DEBUG_printf("tcp_server_sent %u, total %d of %d\n", len, state->sent_len, state->to_send_len);
+    DEBUG_printf("tcp_server_sent() %u, total %d of %d\n", len, state->sent_len, state->to_send_len);
 
     if (state->sent_len >= state->to_send_len) {
-        printf("Finished sending\n");
-        return tcp_server_close(arg);
+        printf("Finished sending, close tcp\n");
+        return tcp_close(arg);
+		state->recv_len = 0;
     }
 
     return ERR_OK;
@@ -77,6 +92,7 @@ static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
 err_t tcp_server_send_data(void *arg, struct tcp_pcb *tpcb)
 {
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+	printf("tcp_server_send_data()\n");
     for(int i=0; i< BUF_SIZE; i++) {
         state->buffer_sent[i] = 'x';
     }
@@ -99,6 +115,7 @@ err_t tcp_server_send_data(void *arg, struct tcp_pcb *tpcb)
 //====================================================================================
 err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+	printf("tcp_server_recv()\n");
     if (!p) {
         return -1;
     }
@@ -134,13 +151,21 @@ static err_t tcp_server_poll(void *arg, struct tcp_pcb *tpcb) {
     return -1; // no response is an error?
 }
 //====================================================================================
-static void tcp_server_err(void *arg, err_t err) {
-    if (err != ERR_ABRT) {
+static void tcp_server_err(void * arg, err_t err) {
+    TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+    if (err == ERR_RST){
+        printf("Remote closed connection\n");
+		err_t err = tcp_close(arg);
+		state->recv_len = 0;
+        if (err != ERR_OK) DEBUG_printf("Close error %d\n", err);
+    }else if (err != ERR_ABRT) {
         DEBUG_printf("tcp_client_err_fn %d\n", err);
     }
 }
 //====================================================================================
-static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err) {
+static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err) 
+{
+	printf("tcp_server_accept()\n");
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     if (err != ERR_OK || client_pcb == NULL) {
         DEBUG_printf("Failure in accept\n");
@@ -160,7 +185,7 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err)
 //====================================================================================
 static bool tcp_server_open(TCP_SERVER_T *state)
 {
-    DEBUG_printf("Starting server at %s on port %u\n", ip4addr_ntoa(netif_ip4_addr(netif_list)), TCP_PORT);
+    DEBUG_printf("tcp_server_open() at %s on port %u\n", ip4addr_ntoa(netif_ip4_addr(netif_list)), TCP_PORT);
 
     struct tcp_pcb *pcb = tcp_new_ip_type(IPADDR_TYPE_ANY);
     if (!pcb) {
@@ -193,7 +218,7 @@ int tcp_server_main()
 {
     cyw43_arch_enable_sta_mode();
 
-    printf("TCP Server Connecting to WiFi...\n");
+    printf("TCP Server main() Connecting to WiFi...\n");
     if (cyw43_arch_wifi_connect_timeout_ms("82 starwood", "6132266151", CYW43_AUTH_WPA2_AES_PSK, 30000)) {
         printf("wifi connect fail\n");
         return 1;

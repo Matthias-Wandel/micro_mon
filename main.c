@@ -48,6 +48,9 @@ int main() {
         return 1;
     }
 
+tcp_server_main();
+
+
     for (int n=5;n>=0;n--){
         sleep_ms(500);
 //        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
