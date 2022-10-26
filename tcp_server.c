@@ -8,16 +8,22 @@
 #include "lwip/pbuf.h"
 #include "lwip/tcp.h"
 
-#define TCP_PORT 80
 #define DEBUG_printf printf
-#define BUF_SIZE 2048
-#define TEST_ITERATIONS 10
+#define BUF_SIZE 1024
 #define POLL_TIME_S 5
 
 
 static const char Wifi_ssid[] = "82 starwood";
 static const char Wifi_password[] = "6132266151";
+#define TCP_PORT 80
 
+#define STATIC_IP 1
+
+#ifdef STATIC_IP
+static const uint8_t addr_use[] = {192,168,0,31};
+static const uint8_t netmaks_use[] = {255,255,255,0};
+static const uint8_t gateway_use[] = {192,168,0,1};
+#endif
 
 typedef struct TCP_SERVER_T_ {
     struct tcp_pcb *server_pcb; // A whole lot of internal state variables of lwip in there!
@@ -37,37 +43,6 @@ typedef struct { // Tcp connection instance.
 } TCP_CONNECTION_T;
 
 
-//====================================================================================
-//====================================================================================
-static err_t tcp_server_close(void) {
-    printf("tcp_server_close()\n");
-    err_t err = ERR_OK;
-
-    // do we really need to close the connection if we close the server?
-    /*
-    if (state->client_pcb != NULL) {
-        tcp_arg(state->client_pcb, NULL);
-        tcp_poll(state->client_pcb, NULL, 0);
-        tcp_sent(state->client_pcb, NULL);
-        tcp_recv(state->client_pcb, NULL);
-        tcp_err(state->client_pcb, NULL);
-        err = tcp_close(state->client_pcb);
-        if (err != ERR_OK) {
-            DEBUG_printf("close failed %d, calling abort\n", err);
-            tcp_abort(state->client_pcb);
-            err = ERR_ABRT;
-        }
-        state->client_pcb = NULL;
-    }
-    */
-
-    if (state.server_pcb) {
-        //tcp_arg(state.server_pcb, NULL);
-        tcp_close(state.server_pcb);
-        state.server_pcb = NULL;
-    }
-    return err;
-}
 //====================================================================================
 // Close and deallocate the TCP connection.
 //====================================================================================
@@ -107,15 +82,15 @@ static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
         printf("Finished sending, close tcp connection\n");
         return  tcp_connection_close(Conn);
     }else{
-		// More to send.
-		//return tcp_write(Conn->client_pcb, Conn->SendBuffer+Conn->n_sent, Conn->n_to_send-Conn->n_send, TCP_WRITE_FLAG_COPY);
-	}
+        // More to send.
+        //return tcp_write(Conn->client_pcb, Conn->SendBuffer+Conn->n_sent, Conn->n_to_send-Conn->n_send, TCP_WRITE_FLAG_COPY);
+    }
     return ERR_OK;
 }
 //====================================================================================
 // Called to send data, not a callback.
 //====================================================================================
-err_t tcp_server_send_data(TCP_CONNECTION_T * Conn)
+static err_t tcp_server_send_data(TCP_CONNECTION_T * Conn)
 {
     printf("tcp_server_send_data()\n");
 
@@ -125,7 +100,7 @@ err_t tcp_server_send_data(TCP_CONNECTION_T * Conn)
             Conn->SendBuffer[i] = 'x';
         }
         strcpy(Conn->SendBuffer, "HTTP/1.0 200 OK\r\nContent-Length: 73\r\n\r\n"
-		                         "<html><b>Hello world</b>\n<br>\nthis comes from a raspberry pi pico\n</html>1234567890");
+                                 "<html><b>Hello world</b>\n<br>\nthis comes from a raspberry pi pico\n</html>1234567890");
 
         int n_send = strlen(Conn->SendBuffer);
         Conn->n_to_send = n_send;
@@ -145,7 +120,7 @@ err_t tcp_server_send_data(TCP_CONNECTION_T * Conn)
 //====================================================================================
 // Callback
 //====================================================================================
-err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
+static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
 {
     TCP_CONNECTION_T *Conn = (TCP_CONNECTION_T*)arg;
     printf("tcp_server_recv( arg=%x)\n",(int)arg);
@@ -266,13 +241,16 @@ int tcp_server_main()
 
     printf("TCP Server main() Connecting to WiFi...\n");
 
-    //netif_set_ipaddr(struct netif *netif, const ip4_addr_t *ipaddr) // Set static IP address, figure out how.
-
-
     if (cyw43_arch_wifi_connect_timeout_ms(Wifi_ssid, Wifi_password, CYW43_AUTH_WPA2_AES_PSK, 30000)) {
         printf("wifi connect fail\n");
         return 1;
     }
+
+#ifdef STATIC_IP
+    // Ignore address we got from DHCP and use static one instead.
+    netif_set_addr(netif_list, (const ip4_addr_t *) addr_use,(const ip4_addr_t *) netmaks_use,(const ip4_addr_t *) gateway_use );
+    netif_set_hostname(netif_list,"mypico");
+#endif
 
     if (!tcp_server_open(&state)) {
         return -1;
