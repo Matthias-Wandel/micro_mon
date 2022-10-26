@@ -4,13 +4,12 @@
 #include "pico/binary_info.h"
 
 #include <stdio.h>
+#include <memory.h>
 
 
 //====================================================================================
 // Code from ADC console
 //====================================================================================
-#define N_SAMPLES 1000
-uint16_t sample_buf[N_SAMPLES];
 
 static void printhelp() {
     puts("\nCommands:");
@@ -75,6 +74,8 @@ int adc_main(void) {
                 break;
             }
             case 'S': {
+                #define N_SAMPLES 1000
+                uint16_t sample_buf[N_SAMPLES];
                 printf("\nStarting capture %d samples\n",N_SAMPLES);
                 absolute_time_t start, end;
 
@@ -84,9 +85,26 @@ int adc_main(void) {
 
                 printf("Time: %6.3f ms\n",(end-start)/1000.0);
 
+                short Histogram[1<<12];
+                memset(Histogram, 0, sizeof(Histogram));
                 for (int i = 0; i < N_SAMPLES; i = i + 1){
                     printf("%5d", sample_buf[i]);
                     if (i % 10 == 9) printf("\n");
+                    Histogram[sample_buf[i]] += 1;
+                }
+                int last = 0;
+                for (int i=0;i<1<<12;i++){
+                    // show histogram.  it turns out values ending with 3 lsbs set are 1/2 top 1/4 as likely
+                    // Each increment represents 0.8 millivolts.  stddev with something hooked up is about 1.5 increments.
+                    if (Histogram[i]){
+                        if (last && (last != i-1)){
+                            printf(".....\n");
+                        }
+                        last=i;
+                        printf("%4d: %4d ",i,Histogram[i]);
+                        for (int a=0;a<Histogram[i];a+=5) putchar('#');
+                        putchar('\n');
+                    }
                 }
                 break;
             }
@@ -130,7 +148,7 @@ int adc_main(void) {
 
                 break;
             }
-            case 'x': 
+            case 'x':
                 return 0;
 
 

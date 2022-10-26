@@ -29,7 +29,7 @@ typedef struct TCP_SERVER_T_ {
     struct tcp_pcb *server_pcb; // A whole lot of internal state variables of lwip in there!
 } TCP_SERVER_T;
 
-TCP_SERVER_T state; // Only one instance of tcp server, but multiple instances of connection.
+static TCP_SERVER_T state; // Only one instance of tcp server, but multiple instances of connection.
 
 
 typedef struct { // Tcp connection instance.
