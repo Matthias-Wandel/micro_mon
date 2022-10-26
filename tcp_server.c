@@ -14,6 +14,11 @@
 #define TEST_ITERATIONS 10
 #define POLL_TIME_S 5
 
+
+static const char Wifi_ssid[] = "82 starwood";
+static const char Wifi_password[] = "6132266151";
+
+
 typedef struct TCP_SERVER_T_ {
     struct tcp_pcb *server_pcb; // A whole lot of internal state variables of lwip in there!
 } TCP_SERVER_T;
@@ -101,7 +106,10 @@ static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
     if (Conn->n_sent >= Conn->n_to_send) {
         printf("Finished sending, close tcp connection\n");
         return  tcp_connection_close(Conn);
-    }
+    }else{
+		// More to send.
+		//return tcp_write(Conn->client_pcb, Conn->SendBuffer+Conn->n_sent, Conn->n_to_send-Conn->n_send, TCP_WRITE_FLAG_COPY);
+	}
     return ERR_OK;
 }
 //====================================================================================
@@ -116,10 +124,12 @@ err_t tcp_server_send_data(TCP_CONNECTION_T * Conn)
         for(int i=0; i< BUF_SIZE; i++) {
             Conn->SendBuffer[i] = 'x';
         }
-        strcpy(Conn->SendBuffer, "HTTP/1.0 200 OK\r\nContent-Length: 31\r\n\r\n<html><b>Hello world</b></html>1234567890");
+        strcpy(Conn->SendBuffer, "HTTP/1.0 200 OK\r\nContent-Length: 73\r\n\r\n"
+		                         "<html><b>Hello world</b>\n<br>\nthis comes from a raspberry pi pico\n</html>1234567890");
+
         int n_send = strlen(Conn->SendBuffer);
         Conn->n_to_send = n_send;
-        printf("Writing %ld bytes to client\n", n_send);
+        printf("%d bytes into send buffer\n", n_send);
     }
 
     // this method is callback from lwIP, so cyw43_arch_lwip_begin is not required, however you
@@ -255,12 +265,14 @@ int tcp_server_main()
     cyw43_arch_enable_sta_mode();
 
     printf("TCP Server main() Connecting to WiFi...\n");
-    if (cyw43_arch_wifi_connect_timeout_ms("82 starwood", "6132266151", CYW43_AUTH_WPA2_AES_PSK, 30000)) {
+
+    //netif_set_ipaddr(struct netif *netif, const ip4_addr_t *ipaddr) // Set static IP address, figure out how.
+
+
+    if (cyw43_arch_wifi_connect_timeout_ms(Wifi_ssid, Wifi_password, CYW43_AUTH_WPA2_AES_PSK, 30000)) {
         printf("wifi connect fail\n");
         return 1;
     }
-
-    //netif_set_ipaddr(struct netif *netif, const ip4_addr_t *ipaddr) // Set static IP address, figure out how.
 
     if (!tcp_server_open(&state)) {
         return -1;
