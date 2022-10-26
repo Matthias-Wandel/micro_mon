@@ -22,24 +22,24 @@ TCP_SERVER_T state; // Only one instance of tcp server, but multiple instances o
 
 
 typedef struct { // Tcp connection instance.
-	struct tcp_pcb *client_pcb; // A whole lot of internal state variables of lwip in there!
+    struct tcp_pcb *client_pcb; // A whole lot of internal state variables of lwip in there!
     uint8_t SendBuffer[BUF_SIZE];
-	int n_to_send;
-	int n_sent;
-	
+    int n_to_send;
+    int n_sent;
+
     uint8_t RecvBuffer[BUF_SIZE];
-    int n_received;	
+    int n_received;
 } TCP_CONNECTION_T;
 
 
 //====================================================================================
-static err_t tcp_server_close(void *arg) {
+//====================================================================================
+static err_t tcp_server_close(void) {
     printf("tcp_server_close()\n");
-    TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     err_t err = ERR_OK;
-	
-	// do we really need to close the connection if we close the server?
-	/*
+
+    // do we really need to close the connection if we close the server?
+    /*
     if (state->client_pcb != NULL) {
         tcp_arg(state->client_pcb, NULL);
         tcp_poll(state->client_pcb, NULL, 0);
@@ -54,47 +54,74 @@ static err_t tcp_server_close(void *arg) {
         }
         state->client_pcb = NULL;
     }
-	*/
-	
-    if (state->server_pcb) {
-        //tcp_arg(state->server_pcb, NULL);
-        tcp_close(state->server_pcb);
-        state->server_pcb = NULL;
+    */
+
+    if (state.server_pcb) {
+        //tcp_arg(state.server_pcb, NULL);
+        tcp_close(state.server_pcb);
+        state.server_pcb = NULL;
     }
     return err;
 }
 //====================================================================================
-static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
-    TCP_CONNECTION_T *Conn = (TCP_CONNECTION_T *)arg;
-    Conn->n_sent += len;
-	
-    DEBUG_printf("tcp_server_sent() %u, total %d of %d\n", len, Conn->n_sent, Conn->n_to_send);
+// Close and deallocate the TCP connection.
+//====================================================================================
+static err_t tcp_connection_close(TCP_CONNECTION_T * Conn) {
+    printf("tcp_connection_close()\n");
+    err_t err = ERR_OK;
 
-    if (Conn->n_sent >= Conn->n_to_send) {
-        printf("Finished sending, close tcp\n");
-		int r = tcp_close(arg);
-		free(Conn);
-		return r;
+    tcp_arg(Conn->client_pcb, NULL);
+    tcp_poll(Conn->client_pcb, NULL, 0);
+    tcp_sent(Conn->client_pcb, NULL);
+    tcp_recv(Conn->client_pcb, NULL);
+    tcp_err(Conn->client_pcb, NULL);
+    err = tcp_close(Conn->client_pcb);
+    if (err != ERR_OK) {
+        DEBUG_printf("close failed %d\n", err);
+        tcp_abort(Conn->client_pcb);
+        err = ERR_ABRT;
     }
 
+    tcp_close(Conn->client_pcb);
+    Conn->client_pcb = NULL;
+    free(Conn);
+
+    return err;
+}
+//====================================================================================
+// Callback -- data has been sent.
+//====================================================================================
+static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
+{
+    TCP_CONNECTION_T *Conn = (TCP_CONNECTION_T *)arg;
+
+    DEBUG_printf("tcp_server_sent(arg=%x) %u, total %d of %d\n",(int)arg, len, Conn->n_sent, Conn->n_to_send);
+    Conn->n_sent += len;
+
+    if (Conn->n_sent >= Conn->n_to_send) {
+        printf("Finished sending, close tcp connection\n");
+        return  tcp_connection_close(Conn);
+    }
     return ERR_OK;
 }
 //====================================================================================
+// Called to send data, not a callback.
+//====================================================================================
 err_t tcp_server_send_data(TCP_CONNECTION_T * Conn)
 {
-	printf("tcp_server_send_data()\n");
-	
-	{
-		// Make up some bogus data to send.
-		for(int i=0; i< BUF_SIZE; i++) {
-			Conn->SendBuffer[i] = 'x';
-		}
-		strcpy(Conn->SendBuffer, "HTTP/1.0 200 OK\r\nContent-Length: 31\r\n\r\n<html><b>Hello world</b></html>1234567890");
-		int n_send = strlen(Conn->SendBuffer);
-		Conn->n_to_send = n_send;
-		printf("Writing %ld bytes to client\n", n_send);
-	}
-    
+    printf("tcp_server_send_data()\n");
+
+    {
+        // Make up some bogus data to send.
+        for(int i=0; i< BUF_SIZE; i++) {
+            Conn->SendBuffer[i] = 'x';
+        }
+        strcpy(Conn->SendBuffer, "HTTP/1.0 200 OK\r\nContent-Length: 31\r\n\r\n<html><b>Hello world</b></html>1234567890");
+        int n_send = strlen(Conn->SendBuffer);
+        Conn->n_to_send = n_send;
+        printf("Writing %ld bytes to client\n", n_send);
+    }
+
     // this method is callback from lwIP, so cyw43_arch_lwip_begin is not required, however you
     // can use this method to cause an assertion in debug mode, if this method is called when
     // cyw43_arch_lwip_begin IS needed
@@ -106,9 +133,12 @@ err_t tcp_server_send_data(TCP_CONNECTION_T * Conn)
     return err;
 }
 //====================================================================================
-err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
+// Callback
+//====================================================================================
+err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
+{
     TCP_CONNECTION_T *Conn = (TCP_CONNECTION_T*)arg;
-	printf("tcp_server_recv()\n");
+    printf("tcp_server_recv( arg=%x)\n",(int)arg);
     if (!p) {
         return -1;
     }
@@ -127,7 +157,7 @@ err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
         tcp_recved(tpcb, p->tot_len);
     }
     pbuf_free(p);
-    
+
     printf("recv_len = %d\n",Conn->n_received); // Check for request.
     printf("Got: %s\n",Conn->RecvBuffer);
     if (got_was == 0){
@@ -139,27 +169,34 @@ err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
     return ERR_OK;
 }
 //====================================================================================
-static err_t tcp_server_poll(void *arg, struct tcp_pcb *tpcb) {
+// Callback -- not sure what this does.
+//====================================================================================
+static err_t tcp_server_poll(void *arg, struct tcp_pcb *tpcb)
+{
     DEBUG_printf("tcp_server_poll_fn\n");
     return -1; // no response is an error?
 }
 //====================================================================================
-static void tcp_server_err(void * arg, err_t err) 
+// Callback
+//====================================================================================
+static void tcp_server_err(void * arg, err_t err)
 {
-	printf("tcp_server_err() arg=%x, err=%d\n",(int)arg, err);
+    printf("tcp_server_err() arg=%x, err=%d\n",(int)arg, err);
     if (err == ERR_RST){
         printf("Remote closed connection\n");
-		// But which connection?  Pointer to tcp server or connection?
-		err_t err = tcp_close(arg);
+        // But which connection?  Pointer to tcp server or connection?
+        err_t err = tcp_close(arg);
         if (err != ERR_OK) DEBUG_printf("Close error %d\n", err);
     }else if (err != ERR_ABRT) {
         DEBUG_printf("tcp_client_err_fn %d\n", err);
     }
 }
 //====================================================================================
-static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err) 
+// Callback
+//====================================================================================
+static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err)
 {
-	printf("tcp_server_accept()\n");
+    printf("tcp_server_accept()\n");
     TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
     if (err != ERR_OK || client_pcb == NULL) {
         DEBUG_printf("Failure in accept\n");
@@ -168,13 +205,13 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err)
     DEBUG_printf("Client connected\n");
 
     TCP_CONNECTION_T *Conn = calloc(1, sizeof(TCP_CONNECTION_T));
-	if (Conn){
-		printf("Failed to allocate for connection");
-		tcp_close(arg);
-	}
-	printf("Conn = %x",(int)Conn);
-	
-	Conn->client_pcb = client_pcb;
+    if (!Conn){
+        printf("Failed to allocate for connection\n");
+        tcp_close(arg);
+    }
+    printf("Allocated TCP connection Conn = %x\n",(int)Conn);
+
+    Conn->client_pcb = client_pcb;
     tcp_arg(client_pcb, Conn);
     tcp_sent(client_pcb, tcp_server_sent);
     tcp_recv(client_pcb, tcp_server_recv);
@@ -192,7 +229,7 @@ static bool tcp_server_open()
     if (!pcb) {
         DEBUG_printf("failed to create pcb\n");
         return false;
-    } 
+    }
 
     err_t err = tcp_bind(pcb, NULL, TCP_PORT);
     if (err) {
@@ -207,7 +244,7 @@ static bool tcp_server_open()
         return false;
     }
 
-    tcp_arg(state.server_pcb, &state);
+    tcp_arg(state.server_pcb, NULL);
     tcp_accept(state.server_pcb, tcp_server_accept);
 
     return true;
@@ -221,22 +258,19 @@ int tcp_server_main()
     if (cyw43_arch_wifi_connect_timeout_ms("82 starwood", "6132266151", CYW43_AUTH_WPA2_AES_PSK, 30000)) {
         printf("wifi connect fail\n");
         return 1;
-    } else {
-        printf("Connected.\n");
     }
-    
+
     //netif_set_ipaddr(struct netif *netif, const ip4_addr_t *ipaddr) // Set static IP address, figure out how.
 
-    
     if (!tcp_server_open(&state)) {
         return -1;
     }
-    
+
     while (1){
         // if you are using pico_cyw43_arch_poll, then you must poll periodically from your
         // main loop (not from a timer) to check for WiFi driver or lwIP work that needs to be done.
         cyw43_arch_poll();
-        sleep_ms(1);
+        sleep_ms(10);
     }
 
     return 0;
