@@ -11,6 +11,8 @@ add_executable(my_pico
     adc.c
     wifi_scan.c
     tcp_server.c
+	one_wire.cpp
+	one_wire_18b20.cpp
 )
 pico_enable_stdio_usb(my_pico 1)
 

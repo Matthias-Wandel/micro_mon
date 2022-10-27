@@ -48,7 +48,7 @@ static int scan_result(void *env, const cyw43_ev_scan_result_t *result)
         // Monitor specific station mode
         if (memcmp(&this, &List[Monitor_index], offsetof(Station_t, rssi_sum)) == 0){
             printf("%3d:",result->rssi);
-            int NumHashes = result->rssi+90;
+            int NumHashes = result->rssi+95;
             for (int a=0;a<NumHashes;a++) putchar('#'); // Make a bargraph
             putchar('\n');
         }
