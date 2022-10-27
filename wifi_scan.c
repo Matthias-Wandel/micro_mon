@@ -1,9 +1,11 @@
 // My modified version of wifi scan example
 
 #include "pico/stdlib.h"
-#include "hardware/gpio.h"
-#include "pico/binary_info.h"
+//#include "hardware/gpio.h"
+//#include "pico/binary_info.h"
 #include "pico/cyw43_arch.h"
+//#include "hardware/vreg.h"
+//#include "hardware/clocks.h"
 
 #include <stdio.h>
 
@@ -17,18 +19,24 @@ typedef struct {
 
 #define MAX_STATIONS 20
 Station_t List[MAX_STATIONS];
-int num_seen = 0;
+static int num_seen = 0;
 
-int Monitor_index = -1;
+static int Monitor_index = -1;
 
-void ShowStation(Station_t this)
+//====================================================================================
+// Show one station
+//====================================================================================
+static void ShowStation(Station_t this)
 {
-    printf("%-25s ch:%d m:%02x%02x%02x%02x%02x%02x",
+    printf("%-25s ch:%2d m:%02x%02x%02x%02x%02x%02x",
         this.ssid, this.channel, this.mac[0],this.mac[1],this.mac[2],this.mac[3],this.mac[4],this.mac[5]);
     printf(" rssi:%5.1f\n",(float)this.rssi_sum/this.times_seen);
 }
 
 
+//====================================================================================
+// Callback for scan result
+//====================================================================================
 static int scan_result(void *env, const cyw43_ev_scan_result_t *result)
 {
     if (!result) return 0;
@@ -77,29 +85,44 @@ static int scan_result(void *env, const cyw43_ev_scan_result_t *result)
     return 0;
 }
 
-#include "hardware/vreg.h"
-#include "hardware/clocks.h"
+//====================================================================================
+// Compare function for qsort by RSSI
+//====================================================================================
+static int RssiSortCompare(const void * s1, const void * s2)
+{
+    int r1 = ((Station_t*)s1)->rssi_sum*8 / ((Station_t*)s1)->times_seen;
+    int r2 = ((Station_t*)s2)->rssi_sum*8 / ((Station_t*)s2)->times_seen;
+    return r2-r1;
+}
 
+//====================================================================================
+// Wifi scan with option to detailed monitor
+//====================================================================================
 int wifi_scan()
 {
     cyw43_arch_enable_sta_mode();
     cyw43_wifi_scan_options_t scan_options = {0};
 
+scan_again:
     memset(List, 0, sizeof(List));
     num_seen = 0;
     Monitor_index = -1;
 
-    int err = cyw43_wifi_scan(&cyw43_state, &scan_options, NULL, scan_result);
-    if (err == 0) {
-        printf("\nPerforming wifi scan\n");
-    } else {
-        printf("Failed to start scan: %d\n", err);
-    }
-
-    while(true) {
+    printf("\nPerforming wifi scan\n");
+    int num_scans = 2; // Scan twice to get more stations
+    while (1){
         if (!cyw43_wifi_scan_active(&cyw43_state)) {
-            printf("Scan done\n");
-            break;
+
+            if (num_scans-- > 0){
+                int err = cyw43_wifi_scan(&cyw43_state, &scan_options, NULL, scan_result);
+                if (err) {
+                    printf("Failed to start scan: %d\n", err);
+                    break;
+                }
+            }else{
+                printf("Scans done\n");
+                break;
+            }
         }
         // if you are using pico_cyw43_arch_poll, then you must poll periodically from your
         // main loop (not from a timer) to check for WiFi driver or lwIP work that needs to be done.
@@ -107,23 +130,30 @@ int wifi_scan()
         sleep_ms(1);
     }
 
+    qsort(List, num_seen, sizeof(Station_t), RssiSortCompare);
+
+
 pick_station:
     printf("\nStation summary:\n");
     for (int a=0;a<num_seen;a++){
-        printf("%2d ",a);
+        printf("(%c) ",a+'A');
         ShowStation(List[a]);
     }
 
-    printf("For monitoring specific, press 0-9\n");
+    printf("For monitoring specific, press A-%c\nW for rescan, X for exit.\n",'A'+num_seen-1);
     char c = getchar();
-    int index = c-'0';
+    c = tolower(c);
+    if (c == 'w') goto scan_again;
+    if (c == 'x') return 0;
+
+    int index = c-'a';
     if (index >= 0 && index < num_seen){
         // Do a scan, filtering only specific.
         printf("Monitoring: ");
         ShowStation(List[index]);
         Monitor_index = index;
 
-         for (int n=0;n<80;n++){
+         for (int n=0;n<30;n++){
             cyw43_wifi_scan(&cyw43_state, &scan_options, NULL, scan_result);
             while(true) {
                 if (!cyw43_wifi_scan_active(&cyw43_state)) {
