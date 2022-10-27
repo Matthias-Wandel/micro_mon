@@ -1,1 +1,1 @@
-picotool load -F my_adc.uf2 && picotool reboot -F
+picotool load -F my_pico.uf2 && picotool reboot -F
