@@ -1,1 +1,1 @@
-picotool load -F sense_remote.uf2 && picotool reboot -F
+picotool load -F sens_remote.uf2 && picotool reboot -F

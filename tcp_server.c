@@ -13,6 +13,8 @@
 #define POLL_TIME_S 5
 
 
+#include "sensor_remote.h"
+
 static const char Wifi_ssid[] = "82 starwood";
 static const char Wifi_password[] = "6132266151";
 #define TCP_PORT 80
@@ -21,8 +23,6 @@ static const char Wifi_password[] = "6132266151";
 
 #ifdef STATIC_IP
 static const uint8_t addr_use[] = {192,168,0,31};
-static const uint8_t netmaks_use[] = {255,255,255,0};
-static const uint8_t gateway_use[] = {192,168,0,1};
 #endif
 
 typedef struct TCP_SERVER_T_ {
@@ -40,6 +40,8 @@ typedef struct { // Tcp connection instance.
 
     uint8_t RecvBuffer[BUF_SIZE];
     int n_received;
+	
+	int got_request;
 } TCP_CONNECTION_T;
 
 
@@ -145,11 +147,18 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
 
     printf("recv_len = %d\n",Conn->n_received); // Check for request.
     printf("Got: %s\n",Conn->RecvBuffer);
-    if (got_was == 0){
-        if (memcmp("GET /", Conn->RecvBuffer, 5) == 0){
-            return tcp_server_send_data(Conn);
-        }
-    }
+	
+	if (!Conn->got_request){
+		for (int a=0;a<Conn->n_received;a++){
+			if (Conn->RecvBuffer[a] == '\n'){
+				printf("Request line: %.*s\n", a, Conn->RecvBuffer); //5 here refers to # of characters
+				ProcessRequest(arg, Conn->RecvBuffer+4);
+				Conn->got_request = 1;
+				return tcp_server_send_data(Conn);
+				break;
+			}
+		}
+	}
 
     return ERR_OK;
 }
@@ -234,8 +243,9 @@ static bool tcp_server_open()
 
     return true;
 }
+
 //====================================================================================
-int tcp_server_main()
+int tcp_server_setup()
 {
     cyw43_arch_enable_sta_mode();
 
@@ -248,7 +258,7 @@ int tcp_server_main()
 
 #ifdef STATIC_IP
     // Ignore address we got from DHCP and use static one instead.
-    netif_set_addr(netif_list, (const ip4_addr_t *) addr_use,(const ip4_addr_t *) netmaks_use,(const ip4_addr_t *) gateway_use );
+    netif_set_ipaddr(netif_list, (const ip4_addr_t *) addr_use);
     netif_set_hostname(netif_list,"mypico");
 #endif
 
@@ -266,22 +276,3 @@ int tcp_server_main()
     return 0;
 }
 
-/* Some error values codes
-ERR_OK         = 0,
-ERR_MEM        = -1,
-ERR_BUF        = -2,
-ERR_TIMEOUT    = -3,
-ERR_RTE        = -4,
-ERR_INPROGRESS = -5,
-ERR_VAL        = -6,
-ERR_WOULDBLOCK = -7,
-ERR_USE        = -8,
-ERR_ALREADY    = -9,
-ERR_ISCONN     = -10,
-ERR_CONN       = -11,
-ERR_IF         = -12,
-ERR_ABRT       = -13,
-ERR_RST        = -14,
-ERR_CLSD       = -15,
-ERR_ARG        = -16
-*/
