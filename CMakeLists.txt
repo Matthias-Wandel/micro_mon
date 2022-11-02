@@ -2,11 +2,11 @@ cmake_minimum_required(VERSION 3.13)
 
 include(pico_sdk_import.cmake)
 
-project(my_pico_test C CXX)
+project(sens_remote_test C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
-add_executable(my_pico
+add_executable(sens_remote
     main.c
     adc.c
     wifi_scan.c
@@ -14,16 +14,16 @@ add_executable(my_pico
 	one_wire.cpp
 	one_wire_18b20.cpp
 )
-pico_enable_stdio_usb(my_pico 1)
+pico_enable_stdio_usb(sens_remote 1)
 
-target_include_directories(my_pico PRIVATE
+target_include_directories(sens_remote PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
         ${CMAKE_CURRENT_LIST_DIR}/.. # for our common lwipopts
         )
-target_link_libraries(my_pico
+target_link_libraries(sens_remote
 	hardware_adc
 	pico_cyw43_arch_lwip_poll
 	pico_stdlib
 )
 
-pico_add_extra_outputs(my_pico)
+pico_add_extra_outputs(sens_remote)
