@@ -143,10 +143,9 @@ bool One_wire::search_rom_find_next() {
 	uint8_t search_ROM[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 	int discrepancy_marker, rom_bit_index;
-	bool return_value, bitA, bitB;
+	bool bitA, bitB;
 	uint8_t byte_counter, bit_mask;
 
-	return_value = false;
 	while (!done_flag) {
 		if (!reset_check_for_device()) {
 			printf("Failed to reset one wire bus\n");
@@ -210,11 +209,13 @@ bool One_wire::search_rom_find_next() {
 							return false;
 						}
 						rom_address_t address{};
+						bool nonzero = false;
 						for (byte_counter = 0; byte_counter < 8; byte_counter++) {
+							if (search_ROM[byte_counter]) nonzero = true;
 							address.rom[byte_counter] = search_ROM[byte_counter];
 						}
+						if (!nonzero) return false; // All zeros is not a valid address.
 						found_addresses.push_back(address);
-
 						return true;
 					} else {//Otherwise, check if ROM is already known
 						bool equal = true;
@@ -236,7 +237,7 @@ bool One_wire::search_rom_find_next() {
 		if (last_discrepancy == 0)
 			done_flag = true;
 	}
-	return return_value;
+	return false;
 }
 
 void One_wire::match_rom(rom_address_t &address) {
