@@ -17,15 +17,15 @@
 
 typedef struct {
 	void * arg;
-	char char * Url;
+	char * Url;
 }Req_t;
 
 static Req_t Request;
 
 int ProcessRequest(void * arg, char * Url)
 {
-	Request.arg = argl
-	Request.URL = Url;
+	Request.arg = arg;
+	Request.Url = Url;
 }
 
 
@@ -49,6 +49,8 @@ int main() {
         SET_LED(0);
         printf("Starting in %d abs:%d\n",n, get_absolute_time());
     }
+
+	ds18b20_main();
 
 	tcp_server_setup();
 

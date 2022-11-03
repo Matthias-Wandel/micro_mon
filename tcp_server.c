@@ -40,8 +40,8 @@ typedef struct { // Tcp connection instance.
 
     uint8_t RecvBuffer[BUF_SIZE];
     int n_received;
-	
-	int got_request;
+    
+    int got_request;
 } TCP_CONNECTION_T;
 
 
@@ -147,18 +147,18 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
 
     printf("recv_len = %d\n",Conn->n_received); // Check for request.
     printf("Got: %s\n",Conn->RecvBuffer);
-	
-	if (!Conn->got_request){
-		for (int a=0;a<Conn->n_received;a++){
-			if (Conn->RecvBuffer[a] == '\n'){
-				printf("Request line: %.*s\n", a, Conn->RecvBuffer); //5 here refers to # of characters
-				ProcessRequest(arg, Conn->RecvBuffer+4);
-				Conn->got_request = 1;
-				return tcp_server_send_data(Conn);
-				break;
-			}
-		}
-	}
+    
+    if (!Conn->got_request){
+        for (int a=0;a<Conn->n_received;a++){
+            if (Conn->RecvBuffer[a] == '\n'){
+                printf("Request line: %.*s\n", a, Conn->RecvBuffer); //5 here refers to # of characters
+                ProcessRequest(arg, Conn->RecvBuffer+4);
+                Conn->got_request = 1;
+                return tcp_server_send_data(Conn);
+                break;
+            }
+        }
+    }
 
     return ERR_OK;
 }
@@ -242,6 +242,19 @@ static bool tcp_server_open()
     tcp_accept(state.server_pcb, tcp_server_accept);
 
     return true;
+}
+
+//====================================================================================
+// Sleep while polling the TCP interface.
+//====================================================================================
+void tcp_sleep_ms(int ms)
+{
+    while (ms > 0){
+        cyw43_arch_poll();
+        int ms_do = ms > 10 ? 10 : ms;
+        sleep_ms(ms_do);
+        ms -= ms_do;
+    }
 }
 
 //====================================================================================
