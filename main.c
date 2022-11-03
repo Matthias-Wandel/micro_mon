@@ -22,13 +22,28 @@ typedef struct {
 
 static Req_t Request;
 
-int ProcessRequest(void * arg, char * Url)
+//====================================================================================
+// Handle request received thru tcp_server.c module
+//====================================================================================
+int QueueRequest(void * arg, char * Url)
 {
+	printf("Process request: %s\n", Url);
+
+// Somehow sending the response after the receive function returns doesn't work, so don't queue it for now.	
+ds18b20_read_sesnors(arg);	
+return;
+	
 	Request.arg = arg;
 	Request.Url = Url;
 }
 
-
+void SendResponse(void * arg, char * ResponseStr, int len)
+{
+	if (arg){
+		printf("send response to TCP:\n%s\n",ResponseStr);		
+		tcp_server_send_data(arg, (uint8_t *) ResponseStr, len);
+	}
+}
 //====================================================================================
 // My test program main.
 //====================================================================================
@@ -42,21 +57,29 @@ int main() {
         //return 1;
     }
 
-    for (int n=3;n>=0;n--){
+    for (int n=1;n>=0;n--){
         sleep_ms(500);
         SET_LED(1);
         sleep_ms(500);
         SET_LED(0);
         printf("Starting in %d abs:%d\n",n, get_absolute_time());
     }
+	printf("====================================================\n");
 
-	ds18b20_main();
-
+	//ds18b20_read_sesnors(NULL);
 	tcp_server_setup();
 
+	printf("startin main loop\n");
     while (1){
         cyw43_arch_poll();
         sleep_ms(10);
-    }
+		
+		if (Request.arg){
+			printf("process request\n");
+			ds18b20_read_sesnors(Request.arg);
+			//tcp_finished_sending(Request.arg);
+			Request.arg = NULL;
+		}
+	}
 
 }

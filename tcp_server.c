@@ -10,7 +10,7 @@
 
 #define DEBUG_printf printf
 #define BUF_SIZE 1024
-#define POLL_TIME_S 5
+#define POLL_TIME_S 10
 
 
 #include "sensor_remote.h"
@@ -41,7 +41,8 @@ typedef struct { // Tcp connection instance.
     uint8_t RecvBuffer[BUF_SIZE];
     int n_received;
     
-    int got_request;
+    bool got_request;
+	bool finished_send_queuing; // Everything that needs sending is queued.
 } TCP_CONNECTION_T;
 
 
@@ -81,39 +82,40 @@ static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
     Conn->n_sent += len;
 
     if (Conn->n_sent >= Conn->n_to_send) {
-        printf("Finished sending, close tcp connection\n");
-        return  tcp_connection_close(Conn);
+        printf("Everything of %d sent\n", Conn->n_to_send);
+		if (Conn->finished_send_queuing){
+			printf("sending all done, close\n");
+			return  tcp_connection_close(Conn);
+		}
     }else{
         // More to send.
-        //return tcp_write(Conn->client_pcb, Conn->SendBuffer+Conn->n_sent, Conn->n_to_send-Conn->n_send, TCP_WRITE_FLAG_COPY);
+		printf("More stuff to send\n");
+        return tcp_write(Conn->client_pcb, Conn->SendBuffer+Conn->n_sent, Conn->n_to_send-Conn->n_sent, TCP_WRITE_FLAG_COPY);
     }
     return ERR_OK;
 }
 //====================================================================================
 // Called to send data, not a callback.
 //====================================================================================
-static err_t tcp_server_send_data(TCP_CONNECTION_T * Conn)
+int tcp_server_send_data(void * arg, const uint8_t * Response, int len)
 {
-    printf("tcp_server_send_data()\n");
-
-    {
-        // Make up some bogus data to send.
-        for(int i=0; i< BUF_SIZE; i++) {
-            Conn->SendBuffer[i] = 'x';
-        }
-        strcpy(Conn->SendBuffer, "HTTP/1.0 200 OK\r\nContent-Length: 73\r\n\r\n"
-                                 "<html><b>Hello world</b>\n<br>\nthis comes from a raspberry pi pico\n</html>1234567890");
-
-        int n_send = strlen(Conn->SendBuffer);
-        Conn->n_to_send = n_send;
-        printf("%d bytes into send buffer\n", n_send);
+	TCP_CONNECTION_T *Conn = (TCP_CONNECTION_T *)arg;
+    printf("tcp_server_send_data(len=%d)\n",len);
+	cyw43_arch_lwip_check();
+    
+	
+	// Send actual data.
+    sprintf((char *)Conn->SendBuffer, "HTTP/1.0 200 OK\r\n\r\n\r\n");
+	int payload_index = strlen(Conn->SendBuffer);
+	
+	err_t err = tcp_write(Conn->client_pcb, Conn->SendBuffer, payload_index, TCP_WRITE_FLAG_COPY | TCP_WRITE_FLAG_MORE);
+    if (err != ERR_OK) {
+        DEBUG_printf("Write error %d\n", err);
     }
 
-    // this method is callback from lwIP, so cyw43_arch_lwip_begin is not required, however you
-    // can use this method to cause an assertion in debug mode, if this method is called when
-    // cyw43_arch_lwip_begin IS needed
-    cyw43_arch_lwip_check();
-    err_t err = tcp_write(Conn->client_pcb, Conn->SendBuffer, Conn->n_to_send, TCP_WRITE_FLAG_COPY);
+	//Conn->finished_send_queuing = true;
+
+    err = tcp_write(Conn->client_pcb, Response, len, TCP_WRITE_FLAG_COPY | TCP_WRITE_FLAG_MORE);
     if (err != ERR_OK) {
         DEBUG_printf("Write error %d\n", err);
     }
@@ -127,12 +129,11 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     TCP_CONNECTION_T *Conn = (TCP_CONNECTION_T*)arg;
     printf("tcp_server_recv( arg=%x)\n",(int)arg);
     if (!p) {
-        return -1;
+		printf("Remote closed connection\n");
+        return ERR_OK;
     }
-    // this method is callback from lwIP, so cyw43_arch_lwip_begin is not required, however you
-    // can use this method to cause an assertion in debug mode, if this method is called when
-    // cyw43_arch_lwip_begin IS needed
     cyw43_arch_lwip_check();
+	
     int got_was = Conn->n_received;
     if (p->tot_len > 0) {
         printf("tcp_server_recv %d/%d err %d\n", p->tot_len, Conn->n_received, err);
@@ -146,15 +147,24 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     pbuf_free(p);
 
     printf("recv_len = %d\n",Conn->n_received); // Check for request.
-    printf("Got: %s\n",Conn->RecvBuffer);
+    //printf("Got: %s\n",Conn->RecvBuffer);
     
     if (!Conn->got_request){
         for (int a=0;a<Conn->n_received;a++){
             if (Conn->RecvBuffer[a] == '\n'){
-                printf("Request line: %.*s\n", a, Conn->RecvBuffer); //5 here refers to # of characters
-                ProcessRequest(arg, Conn->RecvBuffer+4);
-                Conn->got_request = 1;
-                return tcp_server_send_data(Conn);
+                printf("Request line: %.*s\n", a, Conn->RecvBuffer); 
+				if (memcmp(Conn->RecvBuffer, "GET ", 4) == 0){
+					for (int b=4;b<Conn->n_received;b++){
+						if (Conn->RecvBuffer[b] == ' '){ // Get rid of bits trailing the URL.
+							Conn->RecvBuffer[b] = '\0';
+							break;
+						}
+					}
+					QueueRequest(arg, Conn->RecvBuffer+4);
+				}
+				Conn->got_request = 1;
+                //return tcp_server_send_data(Conn, "Hello world\n",12);
+
                 break;
             }
         }
@@ -277,13 +287,6 @@ int tcp_server_setup()
 
     if (!tcp_server_open(&state)) {
         return -1;
-    }
-
-    while (1){
-        // if you are using pico_cyw43_arch_poll, then you must poll periodically from your
-        // main loop (not from a timer) to check for WiFi driver or lwIP work that needs to be done.
-        cyw43_arch_poll();
-        sleep_ms(10);
     }
 
     return 0;
