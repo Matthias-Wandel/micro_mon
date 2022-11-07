@@ -20,7 +20,7 @@ typedef struct {
 	char * Url;
 }Req_t;
 
-static Req_t Request;
+static Req_t Request; // Could make this a queue, but no need for that so far.
 
 //====================================================================================
 // Handle request received thru tcp_server.c module
@@ -29,10 +29,6 @@ int QueueRequest(void * arg, char * Url)
 {
 	printf("Process request: %s\n", Url);
 
-// Somehow sending the response after the receive function returns doesn't work, so don't queue it for now.	
-ds18b20_read_sesnors(arg);	
-return;
-	
 	Request.arg = arg;
 	Request.Url = Url;
 }
@@ -41,11 +37,12 @@ void SendResponse(void * arg, char * ResponseStr, int len)
 {
 	if (arg){
 		printf("send response to TCP:\n%s\n",ResponseStr);		
-		tcp_server_send_data(arg, (uint8_t *) ResponseStr, len);
+		TCP_EnqueueForSending(arg, ResponseStr, len, 1);
 	}
 }
+
 //====================================================================================
-// My test program main.
+// Remote sensor read program main
 //====================================================================================
 int main() {
 

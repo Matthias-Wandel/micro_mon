@@ -10,7 +10,7 @@
 
 #define DEBUG_printf printf
 #define BUF_SIZE 1024
-#define POLL_TIME_S 10
+#define POLL_TIME 1 // Number of half seconds "polling"
 
 
 #include "sensor_remote.h"
@@ -34,16 +34,17 @@ static TCP_SERVER_T state; // Only one instance of tcp server, but multiple inst
 
 typedef struct { // Tcp connection instance.
     struct tcp_pcb *client_pcb; // A whole lot of internal state variables of lwip in there!
+
     uint8_t SendBuffer[BUF_SIZE];
     int n_to_send;
     int n_sent;
+    bool finished_send_queuing; // Everything that needs sending is queued.
 
     uint8_t RecvBuffer[BUF_SIZE];
     int n_received;
-    
-    bool got_request;
-	bool finished_send_queuing; // Everything that needs sending is queued.
+    bool got_request;    // Wheter we processed the HTTP request already.
 } TCP_CONNECTION_T;
+
 
 
 //====================================================================================
@@ -83,37 +84,31 @@ static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
 
     if (Conn->n_sent >= Conn->n_to_send) {
         printf("Everything of %d sent\n", Conn->n_to_send);
-		if (Conn->finished_send_queuing){
-			printf("sending all done, close\n");
-			return  tcp_connection_close(Conn);
-		}
+        if (Conn->finished_send_queuing){
+            printf("sending all done, close\n");
+            return  tcp_connection_close(Conn);
+        }
     }else{
         // More to send.
-		printf("More stuff to send\n");
+        printf("More stuff to send\n");
         return tcp_write(Conn->client_pcb, Conn->SendBuffer+Conn->n_sent, Conn->n_to_send-Conn->n_sent, TCP_WRITE_FLAG_COPY);
     }
     return ERR_OK;
 }
 //====================================================================================
-// Called to send data, not a callback.
+// Called to send data, must be called from a callback.
 //====================================================================================
-int tcp_server_send_data(void * arg, const uint8_t * Response, int len)
+static int tcp_server_send_data(void * arg, const uint8_t * Response, int len)
 {
-	TCP_CONNECTION_T *Conn = (TCP_CONNECTION_T *)arg;
+    TCP_CONNECTION_T *Conn = (TCP_CONNECTION_T *)arg;
     printf("tcp_server_send_data(len=%d)\n",len);
-	cyw43_arch_lwip_check();
-    
-	
-	// Send actual data.
-    sprintf((char *)Conn->SendBuffer, "HTTP/1.0 200 OK\r\n\r\n\r\n");
-	int payload_index = strlen(Conn->SendBuffer);
-	
-	err_t err = tcp_write(Conn->client_pcb, Conn->SendBuffer, payload_index, TCP_WRITE_FLAG_COPY | TCP_WRITE_FLAG_MORE);
-    if (err != ERR_OK) {
-        DEBUG_printf("Write error %d\n", err);
-    }
+    cyw43_arch_lwip_check();
 
-	//Conn->finished_send_queuing = true;
+
+    // Send http header (that part we already know)
+    static const char HttpStart[] = "HTTP/1.0 200 OK\r\n\r\n\r\n";
+    err_t err = tcp_write(Conn->client_pcb, HttpStart, sizeof(HttpStart)-1, TCP_WRITE_FLAG_MORE);
+    if (err != ERR_OK) DEBUG_printf("Write error %d\n", err);
 
     err = tcp_write(Conn->client_pcb, Response, len, TCP_WRITE_FLAG_COPY | TCP_WRITE_FLAG_MORE);
     if (err != ERR_OK) {
@@ -129,11 +124,11 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     TCP_CONNECTION_T *Conn = (TCP_CONNECTION_T*)arg;
     printf("tcp_server_recv( arg=%x)\n",(int)arg);
     if (!p) {
-		printf("Remote closed connection\n");
+        printf("Remote closed connection\n");
         return ERR_OK;
     }
     cyw43_arch_lwip_check();
-	
+
     int got_was = Conn->n_received;
     if (p->tot_len > 0) {
         printf("tcp_server_recv %d/%d err %d\n", p->tot_len, Conn->n_received, err);
@@ -148,22 +143,21 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
 
     printf("recv_len = %d\n",Conn->n_received); // Check for request.
     //printf("Got: %s\n",Conn->RecvBuffer);
-    
+
     if (!Conn->got_request){
         for (int a=0;a<Conn->n_received;a++){
             if (Conn->RecvBuffer[a] == '\n'){
-                printf("Request line: %.*s\n", a, Conn->RecvBuffer); 
-				if (memcmp(Conn->RecvBuffer, "GET ", 4) == 0){
-					for (int b=4;b<Conn->n_received;b++){
-						if (Conn->RecvBuffer[b] == ' '){ // Get rid of bits trailing the URL.
-							Conn->RecvBuffer[b] = '\0';
-							break;
-						}
-					}
-					QueueRequest(arg, Conn->RecvBuffer+4);
-				}
-				Conn->got_request = 1;
-                //return tcp_server_send_data(Conn, "Hello world\n",12);
+                printf("Request line: %.*s\n", a, Conn->RecvBuffer);
+                if (memcmp(Conn->RecvBuffer, "GET ", 4) == 0){
+                    for (int b=4;b<Conn->n_received;b++){
+                        if (Conn->RecvBuffer[b] == ' '){ // Get rid of bits trailing the URL.
+                            Conn->RecvBuffer[b] = '\0';
+                            break;
+                        }
+                    }
+                    QueueRequest(arg, Conn->RecvBuffer+4);
+                }
+                Conn->got_request = 1;
 
                 break;
             }
@@ -171,14 +165,6 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     }
 
     return ERR_OK;
-}
-//====================================================================================
-// Callback -- not sure what this does.
-//====================================================================================
-static err_t tcp_server_poll(void *arg, struct tcp_pcb *tpcb)
-{
-    DEBUG_printf("tcp_server_poll_fn\n");
-    return -1; // no response is an error?
 }
 //====================================================================================
 // Callback
@@ -195,6 +181,8 @@ static void tcp_server_err(void * arg, err_t err)
         DEBUG_printf("tcp_client_err_fn %d\n", err);
     }
 }
+
+static err_t tcp_server_poll(void *arg, struct tcp_pcb *tpcb);
 //====================================================================================
 // Callback
 //====================================================================================
@@ -219,7 +207,7 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err)
     tcp_arg(client_pcb, Conn);
     tcp_sent(client_pcb, tcp_server_sent);
     tcp_recv(client_pcb, tcp_server_recv);
-    tcp_poll(client_pcb, tcp_server_poll, POLL_TIME_S * 2);
+    tcp_poll(client_pcb, tcp_server_poll, POLL_TIME);
     tcp_err(client_pcb, tcp_server_err);
 
     return 0;
@@ -255,6 +243,42 @@ static bool tcp_server_open()
 }
 
 //====================================================================================
+// Callback -- poll for more data to send from application.
+//====================================================================================
+static err_t tcp_server_poll(void *arg, struct tcp_pcb *tpcb)
+{
+    TCP_CONNECTION_T *Conn = (TCP_CONNECTION_T *)arg;
+    DEBUG_printf("tcp_server_poll_fn\n");
+
+    int n_unsent = Conn->n_to_send - Conn->n_sent;
+    if (n_unsent > 0){
+        u8_t flags = 0;
+        if (!Conn->finished_send_queuing) flags |= TCP_WRITE_FLAG_MORE;
+        tcp_write(tpcb, Conn->SendBuffer+Conn->n_sent, n_unsent, flags);
+    }
+
+    return 0;
+}
+
+//====================================================================================
+// Put it in the output queue to then put in TCP stack when polled by
+// tcp_server_poll which is invoked by a callback.
+//====================================================================================
+void TCP_EnqueueForSending(void * arg, void * Data, int NumBytes, bool Final)
+{
+    TCP_CONNECTION_T *Conn = (TCP_CONNECTION_T *)arg;
+
+    if (Conn->n_to_send+NumBytes > BUF_SIZE){
+        printf("Too many bytes to send");
+        return;
+    }
+
+    memcpy(Conn->SendBuffer+Conn->n_to_send, Data, NumBytes);
+    Conn->n_to_send += NumBytes;
+    Conn->finished_send_queuing = Final;
+}
+
+//====================================================================================
 // Sleep while polling the TCP interface.
 //====================================================================================
 void tcp_sleep_ms(int ms)
@@ -267,6 +291,9 @@ void tcp_sleep_ms(int ms)
     }
 }
 
+
+//====================================================================================
+//
 //====================================================================================
 int tcp_server_setup()
 {
