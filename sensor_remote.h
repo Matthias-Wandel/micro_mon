@@ -9,8 +9,10 @@ void TCP_EnqueueForSending(void * arg, void * Data, int NumBytes, bool Final);
 extern "C" int ds18b20_read_sesnors(void * arg);
 extern "C" void tcp_sleep_ms(int ms);
 extern "C" void SendResponse(void * arg, char * ResponseStr, int n);
+extern "C" void my_sleep_ms(int ms);
 #else
 extern int ds18b20_read_sesnors(void * arg);
 extern void tcp_sleep_ms(int ms);
 extern void SendResponse(void * arg, char * ResponseStr, int n);
+extern void my_sleep_ms(int ms);
 #endif

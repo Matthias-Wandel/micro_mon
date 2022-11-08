@@ -248,7 +248,7 @@ static bool tcp_server_open()
 static err_t tcp_server_poll(void *arg, struct tcp_pcb *tpcb)
 {
     TCP_CONNECTION_T *Conn = (TCP_CONNECTION_T *)arg;
-    DEBUG_printf("tcp_server_poll_fn\n");
+    //DEBUG_printf("tcp_server_poll_fn\n");
 
     int n_unsent = Conn->n_to_send - Conn->n_sent;
     if (n_unsent > 0){
@@ -276,19 +276,6 @@ void TCP_EnqueueForSending(void * arg, void * Data, int NumBytes, bool Final)
     memcpy(Conn->SendBuffer+Conn->n_to_send, Data, NumBytes);
     Conn->n_to_send += NumBytes;
     Conn->finished_send_queuing = Final;
-}
-
-//====================================================================================
-// Sleep while polling the TCP interface.
-//====================================================================================
-void tcp_sleep_ms(int ms)
-{
-    while (ms > 0){
-        cyw43_arch_poll();
-        int ms_do = ms > 10 ? 10 : ms;
-        sleep_ms(ms_do);
-        ms -= ms_do;
-    }
 }
 
 

@@ -16,6 +16,7 @@ extern "C" int ds18b20_read_sesnors(void * arg)
     oneWire.init();
 
     int num_s = oneWire.find_and_count_devices_on_bus();
+	my_sleep_ms(0);
     printf("\n1-wire Devices found: %d\n",num_s);
 
 	if (num_s > MAX_SENSORS) num_s = MAX_SENSORS;
@@ -28,11 +29,13 @@ extern "C" int ds18b20_read_sesnors(void * arg)
         }
         printf(" ");
     }
+	my_sleep_ms(0);
     printf("\nTemperature readings:\n");
     for (int a=0;a<num_s;a++){
         rom_address_t addr = oneWire.get_address(a);
         unsigned char * addr_sane = (unsigned char *)&addr;
         printf("   %02x%02x", addr_sane[2],addr_sane[1]);
+		my_sleep_ms(0);
     }
     printf("\n");
 
@@ -41,14 +44,15 @@ extern "C" int ds18b20_read_sesnors(void * arg)
 	
 
     // Take several readings each for better accuracy
-	const int NUM_AVERAGE = 2;
+	const int NUM_AVERAGE = 4;
     for (int nr=0;nr<NUM_AVERAGE;nr++){
         for (int a=0;a<num_s;a++){
             rom_address_t addr = oneWire.get_address(a);
             int wait_ms = oneWire.convert_temperature(addr,0,0); // How long conversion *should* take
+			my_sleep_ms(0);
         }
 
-        tcp_sleep_ms(900); // 500 ms fast enough for brand name devices.
+        my_sleep_ms(900); // 500 ms fast enough for brand name devices.
         // Cheap chinese clones need 800 miliseconds to have a conversion ready.
 
         for (int a=0;a<num_s;a++){
@@ -75,7 +79,7 @@ extern "C" int ds18b20_read_sesnors(void * arg)
         }
         sprintf(ResponseStr+str_index, ",t=%5.2f\n  ",temp_sums[line]/NUM_AVERAGE);
     }
-	printf("res=>>%s<<\n",ResponseStr);
+	//printf("res=>>%s<<\n",ResponseStr);
 
 
 	if (arg){

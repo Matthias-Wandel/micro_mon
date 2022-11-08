@@ -27,18 +27,50 @@ static Req_t Request; // Could make this a queue, but no need for that so far.
 //====================================================================================
 int QueueRequest(void * arg, char * Url)
 {
-	printf("Process request: %s\n", Url);
-
+	printf("Queue request: %s\n", Url);
 	Request.arg = arg;
 	Request.Url = Url;
 }
 
+//====================================================================================
+// Send response back to tcp_server.c module
+//====================================================================================
 void SendResponse(void * arg, char * ResponseStr, int len)
 {
 	if (arg){
 		printf("send response to TCP:\n%s\n",ResponseStr);		
 		TCP_EnqueueForSending(arg, ResponseStr, len, 1);
 	}
+}
+
+
+//====================================================================================
+// My stuff that needs to run periodically
+//====================================================================================
+static void my_periodic(void)
+{
+	static int LastTime;
+	int NewTime = get_absolute_time();
+	int Delay = NewTime-LastTime;
+	if (Delay > 11*1000){
+		printf("%5.2fms  ",Delay/1000.0);
+	}
+	LastTime = NewTime;
+}
+
+//====================================================================================
+// Sleep while polling the TCP interface.
+//====================================================================================
+void my_sleep_ms(int ms)
+{
+    while (1){
+        cyw43_arch_poll();
+		my_periodic();
+		if (ms <= 0) break;
+        int ms_do = ms > 10 ? 10 : ms;
+        sleep_ms(ms_do);
+        ms -= ms_do;
+    }
 }
 
 //====================================================================================
@@ -68,8 +100,7 @@ int main() {
 
 	printf("startin main loop\n");
     while (1){
-        cyw43_arch_poll();
-        sleep_ms(10);
+		my_sleep_ms(10);
 		
 		if (Request.arg){
 			printf("process request\n");
