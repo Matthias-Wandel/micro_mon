@@ -109,6 +109,7 @@ int main() {
         if (Request.arg){
             printf("process request\n");
 			SendResponse(Request.arg,"Build:"__DATE__"\n",-1);
+			GetAnemometerFrequency(Request.arg);
             ds18b20_read_sesnors(Request.arg);
             TCP_EnqueueForSending(Request.arg, "end\n",4, 1); // Indicate end of stuff to send.
             Request.arg = NULL;
