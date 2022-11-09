@@ -29,7 +29,7 @@ void GetAnemometerFrequency(void * arg)
     }
     printf("2 sec transitons = %d\n",tot);
     char ReportStr[50];
-    sprintf(ReportStr,"An_f=%d/4\n",tot);
+    sprintf(ReportStr,"Anm_frq=%d/4\n",tot);
     printf("Report: %s",ReportStr);
     if (arg) SendResponse(arg, ReportStr, strlen(ReportStr));
 }
