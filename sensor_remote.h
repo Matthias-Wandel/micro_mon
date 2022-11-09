@@ -4,6 +4,9 @@ extern int tcp_server_setup(void);
 extern void tcp_finished_sending(void * arg);
 extern int QueueRequest(void * arg, char * Url);
 void TCP_EnqueueForSending(void * arg, void * Data, int NumBytes, bool Final);
+void core1_entry();
+extern volatile int core2count;
+extern int GetAnemometerFrequency(void);
 
 #ifdef __cplusplus
 extern "C" int ds18b20_read_sesnors(void * arg);

@@ -1,6 +1,5 @@
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
-#include "hardware/adc.h"
 #include "pico/binary_info.h"
 #include "pico/cyw43_arch.h"
 #include "pico/multicore.h"
@@ -53,8 +52,8 @@ static void my_periodic(void)
     static int LastTime;
     int NewTime = get_absolute_time();
     int Delay = NewTime-LastTime;
-    if (Delay > 11*1000){
-        printf("%5.2fms  ",Delay/1000.0);
+    if (Delay > 50*1000){
+        printf("Main loop dealy %5.2fms  ",Delay/1000.0);
     }
     LastTime = NewTime;
 }
@@ -71,20 +70,6 @@ void my_sleep_ms(int ms)
         int ms_do = ms > 10 ? 10 : ms;
         sleep_ms(ms_do);
         ms -= ms_do;
-    }
-}
-
-//====================================================================================
-// Second core code -- runs tight timing stuff.
-//====================================================================================
-static int core2count = 0;
-void core1_entry()
-{
-    printf("Core 2 in");
-    for(;;){
-        sleep_ms(1000);
-        core2count += 1;
-        printf("count = %d\n",core2count);
     }
 }
 
@@ -115,9 +100,9 @@ int main() {
     //ds18b20_read_sesnors(NULL);
     tcp_server_setup();
 
-    printf("startin main loop\n");
+    printf("starting main loop\n");
     while (1){
-        my_sleep_ms(10);
+        my_sleep_ms(20);
 
         if (Request.arg){
             printf("process request\n");

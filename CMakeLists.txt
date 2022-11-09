@@ -13,6 +13,7 @@ add_executable(sens_remote
     adc.c
     wifi_scan.c
     tcp_server.c
+	core1.c
 	one_wire.cpp
 	one_wire_18b20.cpp
 )
