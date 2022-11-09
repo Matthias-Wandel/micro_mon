@@ -13,9 +13,9 @@ add_executable(sens_remote
     adc.c
     wifi_scan.c
     tcp_server.c
-	core1.c
-	one_wire.cpp
-	one_wire_18b20.cpp
+    core1.c
+    one_wire.cpp
+    18b20.cpp
 )
 pico_enable_stdio_usb(sens_remote 1)
 
@@ -24,9 +24,9 @@ target_include_directories(sens_remote PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/.. # for our common lwipopts
         )
 target_link_libraries(sens_remote
-	hardware_adc
-	pico_cyw43_arch_lwip_poll
-	pico_stdlib
+    hardware_adc
+    pico_cyw43_arch_lwip_poll
+    pico_stdlib
     pico_multicore
 )
 
