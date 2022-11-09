@@ -38,8 +38,10 @@ int QueueRequest(void * arg, char * Url)
 void SendResponse(void * arg, char * ResponseStr, int len)
 {
     if (arg){
-        printf("send response to TCP:\n%s\n",ResponseStr);      
-        TCP_EnqueueForSending(arg, ResponseStr, len, 1);
+        printf("SEND:%s (l=%d)",ResponseStr,len);
+        if (len < 0) len = strlen(ResponseStr);
+        TCP_EnqueueForSending(arg, ResponseStr, len, 0);
+		printf("queued done\n");
     }
 }
 
@@ -53,7 +55,7 @@ static void my_periodic(void)
     int NewTime = get_absolute_time();
     int Delay = NewTime-LastTime;
     if (Delay > 50*1000){
-        printf("Main loop dealy %5.2fms  ",Delay/1000.0);
+        printf("Main loop dealy %5.2fms\n",Delay/1000.0);
     }
     LastTime = NewTime;
 }
@@ -106,11 +108,10 @@ int main() {
 
         if (Request.arg){
             printf("process request\n");
-            printf("xxx = %d\n",core2count);
+			SendResponse(Request.arg,"Build:"__DATE__"\n",-1);
             ds18b20_read_sesnors(Request.arg);
-            //tcp_finished_sending(Request.arg);
+            TCP_EnqueueForSending(Request.arg, "end\n",4, 1); // Indicate end of stuff to send.
             Request.arg = NULL;
         }
     }
-
 }
