@@ -26,6 +26,7 @@ target_link_libraries(sens_remote
 	hardware_adc
 	pico_cyw43_arch_lwip_poll
 	pico_stdlib
+    pico_multicore
 )
 
 pico_add_extra_outputs(sens_remote)
