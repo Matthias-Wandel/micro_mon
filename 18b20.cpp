@@ -3,6 +3,8 @@
 #include "one_wire.h"
 #include "sensor_remote.h"
 
+#define ONE_WIRE_BUS_PIN 19 // GPIO 18 is pin 24 on the board.
+
 //====================================================================================
 // My code to use one_wire.cpp to get a set of readings.
 //====================================================================================
@@ -10,9 +12,7 @@ extern "C" int ds18b20_read_sesnors(void * arg)
 {
     #define MAX_SENSORS 20  // If more than that many 18b20s, ignore some of them.
 
-    #define ONE_WIRE_BUS 18 // GPIO 18 is pin 24 on the board.
-
-    One_wire oneWire(ONE_WIRE_BUS);
+    One_wire oneWire(ONE_WIRE_BUS_PIN);
     oneWire.init();
 
     int num_s = oneWire.find_and_count_devices_on_bus();

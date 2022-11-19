@@ -10,7 +10,10 @@
 #include "sensor_remote.h"
 
 #define TRANS_COUNT_SIZE 16
-static int TransCounts[TRANS_COUNT_SIZE];
+
+#define ANEMOMETER_PIN 18
+
+static int TransCounts[TRANS_COUNT_SIZE]; //Transition counts, half second bins.
 static int TransWriteIndex = 0;
 
 //====================================================================================
@@ -20,7 +23,7 @@ void GetAnemometerFrequency(void * arg)
 {
     int index = TransWriteIndex;
     int tot = 0;
-    for (int a=0;a<4;a++){
+    for (int a=0;a<4;a++){ //Total counts for 4 bins, or two seconds worth.
         int ri = (index-1-a) & (TRANS_COUNT_SIZE-1);
         #if REPORT_STR
             printf("t(%d)=%d ",ri,TransCounts[ri]);
@@ -29,7 +32,7 @@ void GetAnemometerFrequency(void * arg)
     }
     printf("2 sec transitons = %d\n",tot);
     char ReportStr[50];
-    sprintf(ReportStr,"Anm_frq=%d/4\n",tot);
+    sprintf(ReportStr,"Anm_freq=%5.1f\n",tot/4.0);
     printf("Report: %s",ReportStr);
     if (arg) SendResponse(arg, ReportStr, strlen(ReportStr));
 }
@@ -41,7 +44,7 @@ void GetAnemometerFrequency(void * arg)
 volatile int core2count = 0;
 void core1_entry()
 {
-    #define ANEMOMETER_PIN 19
+    
     gpio_set_dir(ANEMOMETER_PIN, GPIO_IN);
 
     static int NextSecond;
@@ -84,6 +87,6 @@ void core1_entry()
             NextSecond = now + 500000; // Half seconds, actually.
         }
 
-        if ((core2count & 4095) == 0) GetAnemometerFrequency(NULL); // Test it.
+        //if ((core2count & 4095) == 0) GetAnemometerFrequency(NULL); // Test it.
     }
 }

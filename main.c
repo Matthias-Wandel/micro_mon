@@ -41,7 +41,7 @@ void SendResponse(void * arg, char * ResponseStr, int len)
         printf("SEND:%s (l=%d)",ResponseStr,len);
         if (len < 0) len = strlen(ResponseStr);
         TCP_EnqueueForSending(arg, ResponseStr, len, 0);
-		printf("queued done\n");
+        printf("queued done\n");
     }
 }
 
@@ -108,8 +108,11 @@ int main() {
 
         if (Request.arg){
             printf("process request\n");
-			SendResponse(Request.arg,"Build:"__DATE__"\n",-1);
-			GetAnemometerFrequency(Request.arg);
+            SendResponse(Request.arg,"Built="__DATE__", Up=",-1);
+            char UpStr[32];
+            sprintf(UpStr, "%dm\n",get_absolute_time()/(1000000*60));
+            SendResponse(Request.arg,UpStr,-1);
+            GetAnemometerFrequency(Request.arg);
             ds18b20_read_sesnors(Request.arg);
             TCP_EnqueueForSending(Request.arg, "end\n",4, 1); // Indicate end of stuff to send.
             Request.arg = NULL;
