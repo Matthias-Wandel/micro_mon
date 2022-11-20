@@ -23,16 +23,16 @@ void GetAnemometerFrequency(void * arg)
 {
     int index = TransWriteIndex;
     int tot = 0;
-    for (int a=0;a<4;a++){ //Total counts for 4 bins, or two seconds worth.
+    for (int a=0;a<10;a++){ //Total counts for 10 bins, or two five seconds worth
         int ri = (index-1-a) & (TRANS_COUNT_SIZE-1);
         #if REPORT_STR
             printf("t(%d)=%d ",ri,TransCounts[ri]);
         #endif
         tot += TransCounts[ri];
     }
-    printf("2 sec transitons = %d\n",tot);
+    printf("5 second transitons = %d\n",tot);
     char ReportStr[50];
-    sprintf(ReportStr,"Anm_freq=%5.1f\n",tot/4.0);
+    sprintf(ReportStr,"Anm_freq=%5.1f\n",tot/(5.0*2));
     printf("Report: %s",ReportStr);
     if (arg) SendResponse(arg, ReportStr, strlen(ReportStr));
 }
@@ -60,7 +60,7 @@ void core1_entry()
 
     printf("Core 2 in");
     for(;;){
-        sleep_ms(2);
+        sleep_ms(1);
         core2count += 1;
         int state = gpio_get(ANEMOMETER_PIN);
         if (state != PrevState){
