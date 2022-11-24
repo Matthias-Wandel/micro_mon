@@ -9,7 +9,7 @@
 
 #include "sensor_remote.h"
 
-#define TRANS_COUNT_SIZE 16
+#define TRANS_COUNT_SIZE 32 // Must be a power of two.
 
 #define ANEMOMETER_PIN 18
 
@@ -23,16 +23,18 @@ void GetAnemometerFrequency(void * arg)
 {
     int index = TransWriteIndex;
     int tot = 0;
-    for (int a=0;a<10;a++){ //Total counts for 10 bins, or two five seconds worth
+	const int num_average = 20; // 10 seconds worth.
+
+    for (int a=0;a<num_average;a++){ //Total counts for number of bins.
         int ri = (index-1-a) & (TRANS_COUNT_SIZE-1);
         #if REPORT_STR
             printf("t(%d)=%d ",ri,TransCounts[ri]);
         #endif
         tot += TransCounts[ri];
     }
-    printf("5 second transitons = %d\n",tot);
+    //printf("Transitons = %d\n",tot);
     char ReportStr[50];
-    sprintf(ReportStr,"Anm_freq=%5.1f\n",tot/(5.0*2));
+    sprintf(ReportStr,"Anm_freq=%5.1f\n",tot/(num_average));
     printf("Report: %s",ReportStr);
     if (arg) SendResponse(arg, ReportStr, strlen(ReportStr));
 }
