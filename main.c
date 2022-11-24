@@ -131,6 +131,7 @@ int main() {
             sprintf(UpStr, "%dm\n",get_absolute_time()/(1000000*60));
             SendResponse(Request.arg,UpStr,-1);
             GetAnemometerFrequency(Request.arg);
+            if (HavePzem) PzemReport(Request.arg);
             ds18b20_read_sesnors(Request.arg);
             TCP_EnqueueForSending(Request.arg, "end\n",4, 1); // Indicate end of stuff to send.
             Request.arg = NULL;

@@ -29,3 +29,4 @@ typedef struct {
     float PowerFactor;
 }PzemFields_t;
 PzemFields_t ReadAll(int addr);
+void PzemReport(void * arg);

@@ -3,8 +3,10 @@
 //==================================================================
 
 #include <stdio.h>
+#include <string.h>
 #include "pico/stdlib.h"
 #include "hardware/uart.h"
+
 #include "sensor_remote.h"
 
 #define UART_ID uart1
@@ -190,7 +192,7 @@ void ResetEnergy(int addr)
 static volatile int ch;
 static volatile int num_rx;
 
-// RX interrupt handler
+// RX interrupt handler -- tried that one out.
 static void on_uart_rx()
 {
     while (uart_is_readable(UART_ID)) {
@@ -226,22 +228,11 @@ static int OpenPzemSerial()
     // Now enable the UART to send interrupts - RX only
     uart_set_irq_enables(UART_ID, true, false);
 #endif
-
-/*
-    // Use some the various UART functions to send out data
-    // In a default system, printf will also output via the default UART
-
-    // Send out a character without any conversions
-    uart_putc_raw(UART_ID, 'A');
-
-    // Send out a character but do CR/LF conversions
-    uart_putc(UART_ID, 'B');
-
-    // Send out a string, with CR/LF conversions
-    uart_puts(UART_ID, " Hello, UART!\n");
-*/
 }
 
+//==================================================================
+// Initialize module
+//==================================================================
 int PzemInit(void)
 {
     OpenPzemSerial();
@@ -254,19 +245,15 @@ int PzemInit(void)
         return true;
     }
     return false;
+}
 
-    /*
-    while (1){
-        sleep_ms(2000);
-        if (uart_is_readable(uart0)){
-            printf("got '%c'\n",uart_get_hw(uart0)->dr);
-        }
-        sleep_ms(2000);
-        int before_t = get_absolute_time();
-        ReadAll(0xf8);
-        int after_t = get_absolute_time();
-        printf("readall took %d us.\n",after_t-before_t);
-
-    }
-    */
+//==================================================================
+// Add pzem report
+//==================================================================
+void PzemReport(void * arg)
+{
+    PzemFields_t data = ReadAll(0xf8);
+    char ReportStr[60];
+    sprintf(ReportStr,"V=%5.1f,W=%6.1f, %4.2f%%, wh=%d\n", data.Voltage, data.Power, data.PowerFactor, data.Energy);
+    SendResponse(arg, ReportStr, strlen(ReportStr));
 }
