@@ -18,3 +18,14 @@ extern void tcp_sleep_ms(int ms);
 extern void SendResponse(void * arg, char * ResponseStr, int n);
 extern void my_sleep_ms(int ms);
 #endif
+
+int PzemInit(void);
+typedef struct {
+    float Voltage;
+    float Current;
+    float Power;
+    unsigned long Energy;
+    float Freq;
+    float PowerFactor;
+}PzemFields_t;
+PzemFields_t ReadAll(int addr);

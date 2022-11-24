@@ -10,9 +10,14 @@
 
 #include "sensor_remote.h"
 
-#define NO_WIFI
+//#define HAVE_WIFI
 
-#define SET_LED(x) cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, x)
+#ifdef HAVE_WIFI
+	#define SET_LED(x) cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, x)
+#else
+	#define LED_PIN 25
+	#define SET_LED(x) gpio_put(LED_PIN, x);
+#endif
 
 
 typedef struct {
@@ -21,6 +26,8 @@ typedef struct {
 }Req_t;
 
 static Req_t Request; // Could make this a queue, but no need for that so far.
+
+static bool HavePzem = false;
 
 //====================================================================================
 // Handle request received thru tcp_server.c module
@@ -83,12 +90,19 @@ int main() {
     bi_decl(bi_program_description("Sensor remote"));
     stdio_init_all();
 
+#ifdef HAVE_WIFI
+    gpio_init(LED_PIN);
+    gpio_set_dir(LED_PIN, GPIO_OUT);
     if (cyw43_arch_init()) {
         printf("failed to initialise cyw43\n");
         //return 1;
     }
-    multicore_launch_core1(core1_entry);
+#else
+    gpio_init(LED_PIN);
+    gpio_set_dir(LED_PIN, GPIO_OUT);
+#endif
 
+    multicore_launch_core1(core1_entry);
 
     for (int n=1;n>=0;n--){
         sleep_ms(500);
@@ -99,10 +113,14 @@ int main() {
     }
     printf("====================================================\n");
 
-    //ds18b20_read_sesnors(NULL);
+#ifdef HAVE_WIFI
     tcp_server_setup();
+#endif
+
+    HavePzem = PzemInit();
 
     printf("starting main loop\n");
+
     while (1){
         my_sleep_ms(20);
 

@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
 add_executable(sens_remote
     main.c
+    pzem.c
     adc.c
     wifi_scan.c
     tcp_server.c
