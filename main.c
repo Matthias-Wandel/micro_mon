@@ -10,7 +10,7 @@
 
 #include "sensor_remote.h"
 
-//#define HAVE_WIFI
+#define HAVE_WIFI
 
 #ifdef HAVE_WIFI
 	#define SET_LED(x) cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, x)
@@ -91,8 +91,6 @@ int main() {
     stdio_init_all();
 
 #ifdef HAVE_WIFI
-    gpio_init(LED_PIN);
-    gpio_set_dir(LED_PIN, GPIO_OUT);
     if (cyw43_arch_init()) {
         printf("failed to initialise cyw43\n");
         //return 1;
@@ -127,8 +125,14 @@ int main() {
         if (Request.arg){
             printf("process request\n");
             SendResponse(Request.arg,"Built="__DATE__", Up=",-1);
-            char UpStr[32];
-            sprintf(UpStr, "%dm\n",get_absolute_time()/(1000000*60));
+            char UpStr[40];
+
+// memory leak possibly cause of stop working after 36 hours?
+//          void * foo = malloc(10000);
+//          free(foo);
+//          printf("malloc addr = %d\n",(int)foo);
+
+            sprintf(UpStr, "%dm\n",(int)(get_absolute_time()/(1000000*60)));
             SendResponse(Request.arg,UpStr,-1);
             GetAnemometerFrequency(Request.arg);
             if (HavePzem) PzemReport(Request.arg);

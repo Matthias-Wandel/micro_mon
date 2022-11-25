@@ -67,7 +67,7 @@ extern "C" int ds18b20_read_sesnors(void * arg)
 
     const int LINE_LEN = 21;
     char ResponseStr[MAX_SENSORS*LINE_LEN+10];
-    strcpy(ResponseStr, "abcdefg                                                                                          ");
+    strcpy(ResponseStr, "no sensors");
     int str_index = 0;
 
     for (int line=0;line<num_s;line++){

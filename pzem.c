@@ -236,15 +236,16 @@ static int OpenPzemSerial()
 int PzemInit(void)
 {
     OpenPzemSerial();
-
     PzemFields_t data;
     data = ReadAll(0xf8);
 
     if (data.Voltage){
         printf("Pzem Volt=%6.1f\n",data.Voltage);
         return true;
+    }else{
+        printf("No pzem found\n");
+        return false;
     }
-    return false;
 }
 
 //==================================================================

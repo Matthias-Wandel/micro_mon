@@ -22,7 +22,7 @@ static const char Wifi_password[] = "6132266151";
 #define STATIC_IP 1
 
 #ifdef STATIC_IP
-static const uint8_t addr_use[] = {192,168,0,31};
+static const uint8_t addr_use[] = {192,168,0,32};
 #endif
 
 typedef struct TCP_SERVER_T_ {
