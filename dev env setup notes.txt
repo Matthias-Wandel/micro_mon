@@ -1,0 +1,28 @@
+How to set up development environment:
+
+Add the following lines to the end of .bashrc:
+    export PICO_BOARD=pico_w
+#    export WIFI_SSID=office    --- Not sure where to set these so they actually get used!
+#    export WIFI_PASSWORD=6132266151
+
+Download pico_setup.sh:
+    wget https://raw.githubusercontent.com/raspberrypi/pico-setup/master/pico_setup.sh
+    Change any "mkdir" to "mkdir -p" if you want to re-run the script
+
+chmod +x pico_setup.sh
+./pico_setup.sh
+
+
+
+Skipping some Pico W examples as WIFI_SSID is not defined
+
+
+
+Listen to USB output
+    cat /dev/ttyACM0
+        or
+    minicom -D /dev/ttyACM0
+  
+
+
+
