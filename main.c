@@ -45,7 +45,7 @@ int QueueRequest(void * arg, char * Url)
 void SendResponse(void * arg, char * ResponseStr, int len)
 {
     if (arg){
-        printf("SEND:%s (l=%d)",ResponseStr,len);
+        printf("SEND:%s\n",ResponseStr);
         if (len < 0) len = strlen(ResponseStr);
         TCP_EnqueueForSending(arg, ResponseStr, len, 0);
         printf("queued done\n");
