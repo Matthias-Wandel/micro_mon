@@ -83,6 +83,32 @@ void my_sleep_ms(int ms)
 }
 
 //====================================================================================
+// Process character from stdin (via usb serial)
+//====================================================================================
+void process_stdin_char(int c)
+{
+    printf("Key %d, uptime: %d min\n", c, (int)(get_absolute_time()/(1000000*60)));
+
+/*
+    if (c == 'w'){
+        printf("restart wifi?\n");
+        // Take down wifi
+        tcp_server_shutdown();
+        cyw43_arch_deinit();
+        
+        // And bring it back up
+        cyw43_arch_init();
+        cyw43_arch_enable_sta_mode();
+        tcp_server_setup();
+    }
+*/    
+    if (c == 'j'){
+        // Jiggle ip address -- maybe that brings it back online
+        tcp_server_jiggle_addr();
+    }
+}
+
+//====================================================================================
 // Remote sensor read program main
 //====================================================================================
 int main() {
@@ -121,17 +147,13 @@ int main() {
 
     while (1){
         my_sleep_ms(20);
+        int c =  getchar_timeout_us(0);
+        if (c > 0) process_stdin_char(c);
 
         if (Request.arg){
             printf("process request\n");
             SendResponse(Request.arg,"Built="__DATE__", Up=",-1);
             char UpStr[40];
-
-// memory leak possibly cause of stop working after 36 hours?
-//          void * foo = malloc(10000);
-//          free(foo);
-//          printf("malloc addr = %d\n",(int)foo);
-
             sprintf(UpStr, "%dm\n",(int)(get_absolute_time()/(1000000*60)));
             SendResponse(Request.arg,UpStr,-1);
             GetAnemometerFrequency(Request.arg);

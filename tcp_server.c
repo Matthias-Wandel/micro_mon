@@ -280,7 +280,7 @@ void TCP_EnqueueForSending(void * arg, void * Data, int NumBytes, bool Final)
 
 
 //====================================================================================
-//
+// Set up TCP server
 //====================================================================================
 int tcp_server_setup()
 {
@@ -305,4 +305,18 @@ int tcp_server_setup()
 
     return 0;
 }
+
+//====================================================================================
+// Set up TCP server
+//====================================================================================
+void tcp_server_jiggle_addr(void)
+{
+    static const uint8_t addr_alt[] = {192,168,0,39};
+    printf("switch to alt addr\n");
+    netif_set_ipaddr(netif_list, (const ip4_addr_t *) addr_alt);
+    printf("switch back to normal\n");
+    netif_set_ipaddr(netif_list, (const ip4_addr_t *) addr_use);
+    
+}
+
 
