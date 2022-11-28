@@ -8,7 +8,7 @@
 //====================================================================================
 // My code to use one_wire.cpp to get a set of readings.
 //====================================================================================
-extern "C" int ds18b20_read_sesnors(void * arg)
+extern "C" void ds18b20_read_sesnors(void * arg)
 {
     #define MAX_SENSORS 20  // If more than that many 18b20s, ignore some of them.
 
