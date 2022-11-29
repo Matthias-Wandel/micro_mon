@@ -104,7 +104,11 @@ void process_stdin_char(int c)
 */    
     if (c == 'j'){
         // Jiggle ip address -- maybe that brings it back online
-        tcp_server_jiggle_addr();
+        tcp_server_jiggle_addr(true);
+    }
+    if (c == 'o'){
+        // Just jiggle to same address
+        tcp_server_jiggle_addr(false);
     }
 }
 
