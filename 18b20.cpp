@@ -19,6 +19,12 @@ extern "C" void ds18b20_read_sesnors(void * arg)
     my_sleep_ms(0);
     printf("\n1-wire Devices found: %d\n",num_s);
 
+    if (num_s == 0){
+        if (arg){
+            SendResponse(arg, (char *)"No 18b20s\n", -1);
+            return;
+        }
+    }
     if (num_s > MAX_SENSORS) num_s = MAX_SENSORS;
 
     for (int a=0;a<num_s;a++){
@@ -67,7 +73,6 @@ extern "C" void ds18b20_read_sesnors(void * arg)
 
     const int LINE_LEN = 21;
     char ResponseStr[MAX_SENSORS*LINE_LEN+10];
-    strcpy(ResponseStr, "no sensors");
     int str_index = 0;
 
     for (int line=0;line<num_s;line++){

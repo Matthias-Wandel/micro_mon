@@ -30,8 +30,8 @@ static Req_t Request_waiting; // Plus potentially one queued.
 
 static bool HavePzem = false;
 
-static const int IpRefreshInterval = (6*3600*1000000); // Six hours.
-static int NextIpRefresh = IpRefreshInterval;
+#define IpRefreshInterval (6*3600*(int64_t)1000000); // Six hours.
+static absolute_time_t NextIpRefresh = IpRefreshInterval;
 
 //====================================================================================
 // Handle request received thru tcp_server.c module
