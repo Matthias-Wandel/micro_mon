@@ -22,7 +22,7 @@ static const char Wifi_password[] = "6132266151";
 #define STATIC_IP 1
 
 #ifdef STATIC_IP
-static const uint8_t addr_use[] = {192,168,0,32};
+static const uint8_t addr_use[] = {192,168,0,31};
 #endif
 
 typedef struct TCP_SERVER_T_ {
@@ -83,7 +83,7 @@ static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
     Conn->n_sent += len;
 
     if (Conn->n_sent >= Conn->n_to_send) {
-        printf("Everything of %d sent\n", Conn->n_to_send);
+        //printf("Everything of %d sent\n", Conn->n_to_send);
         if (Conn->finished_send_queuing){
             printf("sending all done, close\n");
             return  tcp_connection_close(Conn);
@@ -141,7 +141,7 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     }
     pbuf_free(p);
 
-    printf("recv_len = %d\n",Conn->n_received); // Check for request.
+    //printf("recv_len = %d\n",Conn->n_received); // Check for request.
     //printf("Got: %s\n",Conn->RecvBuffer);
 
     if (!Conn->got_request){
@@ -307,18 +307,14 @@ int tcp_server_setup()
 }
 
 //====================================================================================
-// Set up TCP server
+// It seems my router forgets that we are there after 36 hour.
+// Just calling netif_set_ipaddr sends something out to clear that.
+// Doesn't disturb TCP connections that may be open
 //====================================================================================
-void tcp_server_jiggle_addr(bool full)
+void tcp_server_refresh_addr(void)
 {
-    static const uint8_t addr_alt[] = {192,168,0,39};
-    if (full){
-        printf("switch to alt addr\n");
-        netif_set_ipaddr(netif_list, (const ip4_addr_t *) addr_alt);
-    }
-    printf("to normal ip addr\n");
+    printf("refresh ip addr\n");
     netif_set_ipaddr(netif_list, (const ip4_addr_t *) addr_use);
-    
 }
 
 

@@ -30,6 +30,9 @@ static Req_t Request_waiting; // Plus potentially one queued.
 
 static bool HavePzem = false;
 
+static const int IpRefreshInterval = (6*3600*1000000); // Six hours.
+static int NextIpRefresh = IpRefreshInterval;
+
 //====================================================================================
 // Handle request received thru tcp_server.c module
 //====================================================================================
@@ -71,12 +74,22 @@ void SendResponse(void * arg, char * ResponseStr, int len)
 static void my_periodic(void)
 {
     static int LastTime;
-    int NewTime = get_absolute_time();
-    int Delay = NewTime-LastTime;
+    absolute_time_t NewTime = get_absolute_time();
+    int Delay = ((int)NewTime)-LastTime;
     if (Delay > 50*1000){
         printf("Main loop dealy %5.2fms\n",Delay/1000.0);
     }
     LastTime = NewTime;
+   
+    int64_t ToIpRefresh = NextIpRefresh-NewTime;
+    //printf("ToIpRefresh = %d sec",(int)(ToIpRefresh>>20));
+    if (ToIpRefresh < 0){
+        printf("Refreshing IP addr========\n");
+        tcp_server_refresh_addr();
+        NextIpRefresh = NewTime+IpRefreshInterval;
+    }
+        
+    
 }
 
 //====================================================================================

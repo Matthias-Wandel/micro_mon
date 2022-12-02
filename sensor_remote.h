@@ -1,7 +1,7 @@
 extern int adc_main(void);
 extern int wifi_scan(void);
 extern int tcp_server_setup(void);
-extern void tcp_server_jiggle_addr(bool full);
+extern void tcp_server_refresh_addr(void);
 extern void tcp_finished_sending(void * arg);
 extern int QueueRequest(void * arg, char * Url);
 void TCP_EnqueueForSending(void * arg, void * Data, int NumBytes, bool Final);

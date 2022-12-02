@@ -142,7 +142,7 @@ PzemFields_t ReadAll(int addr)
 
     if (n_rbytes < 6 || (n_rbytes != rbytes[2]+5)){
         // Should receive 2 bytes header, 1 byt length, data + 2 bytes CRC.
-        printf("Receive length mismatch.  Got %d\n",n_rbytes);
+        printf("Pzem Serial len err. Got %d\n",n_rbytes);
         return data;
     }
 
@@ -154,12 +154,11 @@ PzemFields_t ReadAll(int addr)
     data.Freq = ((rbytes[17]<<8) + rbytes[18])*0.1;
     data.PowerFactor = ((rbytes[19]<<8) + rbytes[20]) * 0.01;
 
-    printf("Voltae  = %5.1f V\n",data.Voltage);
-    printf("Current =%6.3f A\n",data.Current);
-    printf("Power   =%6.1f W\n",data.Power);
-    printf("Energy  = %d Wh\n",data.Energy);
-    printf("Freq    =%5.1f Hz\n",data.Freq);
-    printf("Pf      = %4.2f\n",data.PowerFactor);
+    printf("Volts=%5.1f Pow=%6.1f\n",data.Voltage, data.Power);
+    //printf("Current =%6.3f A\n",data.Current);
+    //printf("Energy  = %d Wh\n",data.Energy);
+    //printf("Freq    =%5.1f Hz\n",data.Freq);
+    //printf("Pf      = %4.2f\n",data.PowerFactor);
 
     return data;
 }
