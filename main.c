@@ -25,7 +25,8 @@ typedef struct {
     char * Url;
 }Req_t;
 
-static Req_t Request; // Could make this a queue, but no need for that so far.
+static Req_t Request;         // Current request
+static Req_t Request_waiting; // Plus potentially one queued.
 
 static bool HavePzem = false;
 
@@ -35,8 +36,20 @@ static bool HavePzem = false;
 int QueueRequest(void * arg, char * Url)
 {
     printf("Queue request: %s\n", Url);
-    Request.arg = arg;
-    Request.Url = Url;
+
+    // Send build and uptime right away (no need to wait on that)
+    char UpStr[40];
+    sprintf(UpStr, "Built="__DATE__", Up=%dm\n",(int)(get_absolute_time()/(1000000*60)));
+    SendResponse(arg,UpStr,-1);
+
+    if (Request_waiting.arg == NULL){
+        Request_waiting.arg = arg;
+        Request_waiting.Url = Url;
+    }else{
+        // Busy plus one queued, don't handle it.
+        TCP_EnqueueForSending(arg, "busy\n",5, 1);
+    }
+
 }
 
 //====================================================================================
@@ -48,7 +61,6 @@ void SendResponse(void * arg, char * ResponseStr, int len)
         printf("SEND:%s\n",ResponseStr);
         if (len < 0) len = strlen(ResponseStr);
         TCP_EnqueueForSending(arg, ResponseStr, len, 0);
-        printf("queued done\n");
     }
 }
 
@@ -88,28 +100,6 @@ void my_sleep_ms(int ms)
 void process_stdin_char(int c)
 {
     printf("Key %d, uptime: %d min\n", c, (int)(get_absolute_time()/(1000000*60)));
-
-/*
-    if (c == 'w'){
-        printf("restart wifi?\n");
-        // Take down wifi
-        tcp_server_shutdown();
-        cyw43_arch_deinit();
-        
-        // And bring it back up
-        cyw43_arch_init();
-        cyw43_arch_enable_sta_mode();
-        tcp_server_setup();
-    }
-*/    
-    if (c == 'j'){
-        // Jiggle ip address -- maybe that brings it back online
-        tcp_server_jiggle_addr(true);
-    }
-    if (c == 'o'){
-        // Just jiggle to same address
-        tcp_server_jiggle_addr(false);
-    }
 }
 
 //====================================================================================
@@ -154,12 +144,14 @@ int main() {
         int c =  getchar_timeout_us(0);
         if (c > 0) process_stdin_char(c);
 
+        if (Request.arg == NULL && Request_waiting.arg){
+            // Dequeue to handle.
+            Request = Request_waiting;
+            Request_waiting.arg = NULL;
+        }
+
         if (Request.arg){
             printf("process request\n");
-            SendResponse(Request.arg,"Built="__DATE__", Up=",-1);
-            char UpStr[40];
-            sprintf(UpStr, "%dm\n",(int)(get_absolute_time()/(1000000*60)));
-            SendResponse(Request.arg,UpStr,-1);
             GetAnemometerFrequency(Request.arg);
             if (HavePzem) PzemReport(Request.arg);
             ds18b20_read_sesnors(Request.arg);
