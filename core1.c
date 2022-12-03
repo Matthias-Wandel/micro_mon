@@ -9,7 +9,7 @@
 
 #include "sensor_remote.h"
 
-#define TRANS_COUNT_SIZE 32 // Must be a power of two.
+#define TRANS_COUNT_SIZE 64 // Must be a power of two.
 
 #define ANEMOMETER_PIN 18
 
@@ -23,7 +23,7 @@ void GetAnemometerFrequency(void * arg)
 {
     int index = TransWriteIndex;
     int tot = 0;
-	const int num_average = 20; // 10 seconds worth.
+	const int num_average = 40; // 20 seconds worth.
 
     for (int a=0;a<num_average;a++){ //Total counts for number of bins.
         int ri = (index-1-a) & (TRANS_COUNT_SIZE-1);
