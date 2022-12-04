@@ -46,6 +46,7 @@ extern "C" void ds18b20_read_sesnors(void * arg)
     printf("\n");
 
     float temp_sums[MAX_SENSORS];
+    int temp_nums[MAX_SENSORS];
     memset(temp_sums, 0, sizeof(temp_sums));
     
 
@@ -58,7 +59,7 @@ extern "C" void ds18b20_read_sesnors(void * arg)
             my_sleep_ms(0);
         }
 
-        my_sleep_ms(900); // 500 ms fast enough for brand name devices.
+        my_sleep_ms(1000); // 500 ms fast enough for brand name devices.
         // Cheap chinese clones need 800 miliseconds to have a conversion ready.
 
         for (int a=0;a<num_s;a++){
@@ -66,7 +67,10 @@ extern "C" void ds18b20_read_sesnors(void * arg)
             unsigned char * addr_sane = (unsigned char *)&addr;
             float temp = oneWire.temperature(addr, 0);
             printf(" %6.2f", addr_sane[1], temp);
-            temp_sums[a] += temp;
+            if (temp != oneWire.invalid_conversion){
+                temp_sums[a] += temp;
+                temp_nums[a] += 1;
+            }
         }
         printf("\n");
     }
@@ -84,7 +88,9 @@ extern "C" void ds18b20_read_sesnors(void * arg)
             sprintf(ResponseStr+str_index,"%02x",addr_sane[i]);
             str_index += 2;
         }
-        sprintf(ResponseStr+str_index, ")=%5.2f\n  ",temp_sums[line]/NUM_AVERAGE);
+        float t_avg = -99;
+        if (temp_nums[line] > 0) t_avg = temp_sums[line]/temp_nums[line];
+        sprintf(ResponseStr+str_index, ")=%5.2f\n  ",t_avg);
         str_index += 8;
     }
     //printf("res=>>%s<<\n",ResponseStr);
