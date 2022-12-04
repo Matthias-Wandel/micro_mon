@@ -48,6 +48,7 @@ extern "C" void ds18b20_read_sesnors(void * arg)
     float temp_sums[MAX_SENSORS];
     int temp_nums[MAX_SENSORS];
     memset(temp_sums, 0, sizeof(temp_sums));
+    memset(temp_nums, 0, sizeof(temp_nums));
     
 
     // Take several readings each for better accuracy
