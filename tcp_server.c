@@ -51,7 +51,7 @@ typedef struct { // Tcp connection instance.
 // Close and deallocate the TCP connection.
 //====================================================================================
 static err_t tcp_connection_close(TCP_CONNECTION_T * Conn) {
-    printf("tcp_connection_close()\n");
+    //printf("tcp_connection_close()\n");
     err_t err = ERR_OK;
 
     tcp_arg(Conn->client_pcb, NULL);
@@ -148,7 +148,7 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
         for (int a=0;a<Conn->n_received;a++){
             if (Conn->RecvBuffer[a] == '\n'){
                 printf("Request line: %.*s\n", a, Conn->RecvBuffer);
-                if (memcmp(Conn->RecvBuffer, "GET ", 4) == 0){
+                if (memcmp(Conn->RecvBuffer, "GET /", 5) == 0){
                     for (int b=4;b<Conn->n_received;b++){
                         if (Conn->RecvBuffer[b] == ' '){ // Get rid of bits trailing the URL.
                             Conn->RecvBuffer[b] = '\0';

@@ -31,7 +31,22 @@ static Req_t Request_waiting; // Plus potentially one queued.
 static bool HavePzem = false;
 
 #define IpRefreshInterval (6*3600*(int64_t)1000000); // Six hours.
+//#define IpRefreshInterval (2*60*(int64_t)1000000); // 2 minutes
 static absolute_time_t NextIpRefresh = IpRefreshInterval;
+
+//====================================================================================
+// Process character from stdin (via usb serial)
+//====================================================================================
+void process_stdin_char(int c)
+{
+    printf("Key %c, uptime: %d min\n", c, (int)(get_absolute_time()/(1000000*60)));
+
+	if (c == 'b'){
+		printf("Built: "__DATE__" "__TIME__"\n");
+		printf("Next ip refresh at %d minutes up\n",(int)(NextIpRefresh/(1000000*60)));
+	}
+}
+
 
 //====================================================================================
 // Handle request received thru tcp_server.c module
@@ -105,14 +120,6 @@ void my_sleep_ms(int ms)
         sleep_ms(ms_do);
         ms -= ms_do;
     }
-}
-
-//====================================================================================
-// Process character from stdin (via usb serial)
-//====================================================================================
-void process_stdin_char(int c)
-{
-    printf("Key %d, uptime: %d min\n", c, (int)(get_absolute_time()/(1000000*60)));
 }
 
 //====================================================================================
