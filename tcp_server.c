@@ -19,7 +19,7 @@ static const char Wifi_ssid[] = "82 starwood";
 static const char Wifi_password[] = "6132266151";
 #define TCP_PORT 80
 
-#define STATIC_IP 1
+//#define STATIC_IP 1
 
 #ifdef STATIC_IP
 static const uint8_t addr_use[] = {192,168,0,31};
@@ -79,7 +79,7 @@ static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
 {
     TCP_CONNECTION_T *Conn = (TCP_CONNECTION_T *)arg;
 
-    DEBUG_printf("tcp_server_sent(arg=%x) %u, total %d of %d\n",(int)arg, len, Conn->n_sent, Conn->n_to_send);
+    //DEBUG_printf("tcp_server_sent(arg=%x) %u, total %d of %d\n",(int)arg, len, Conn->n_sent, Conn->n_to_send);
     Conn->n_sent += len;
 
     if (Conn->n_sent >= Conn->n_to_send) {
@@ -313,8 +313,10 @@ int tcp_server_setup()
 //====================================================================================
 void tcp_server_refresh_addr(void)
 {
+#ifdef STATIC_IP
     printf("refresh ip addr\n");
     netif_set_ipaddr(netif_list, (const ip4_addr_t *) addr_use);
+#endif
 }
 
 
