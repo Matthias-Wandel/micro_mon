@@ -135,7 +135,7 @@ extern "C" void ds18b20_read_sesnors(void * arg)
         printf("\n");
     }
 
-    const int LINE_LEN = 21;
+    const int LINE_LEN = 22;
     char ResponseStr[MAX_SENSORS*LINE_LEN+10];
     int str_index = 0;
 
@@ -150,8 +150,8 @@ extern "C" void ds18b20_read_sesnors(void * arg)
         }
         float t_avg = -99;
         if (temp_nums[line] > 0) t_avg = temp_sums[line]/temp_nums[line];
-        sprintf(ResponseStr+str_index, ")=%5.2f\n  ",t_avg);
-        str_index += 8;
+        sprintf(ResponseStr+str_index, ")=%6.2f\n  ",t_avg);
+        str_index += 9;
     }
     //printf("res=>>%s<<\n",ResponseStr);
 
