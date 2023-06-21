@@ -1,34 +1,34 @@
 cmake_minimum_required(VERSION 3.13)
 
-set(PICO_BOARD pico_w)
+set(PICO_BOARD pico)
 
 include(pico_sdk_import.cmake)
 
-project(sens_remote_test C CXX)
+
+add_compile_options(-mcpu=cortex-m0plus -mthumb)
+
+project(micro_mon_test C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
-add_executable(sens_remote
+add_executable(micro_mon
     main.c
-    pzem.c
     adc.c
-    wifi_scan.c
-    tcp_server.c
     core1.c
+	RP2040-Zero_led.c
     one_wire.cpp
     18b20.cpp
 )
-pico_enable_stdio_usb(sens_remote 1)
+pico_enable_stdio_usb(micro_mon 1)
 
-target_include_directories(sens_remote PRIVATE
+target_include_directories(micro_mon PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
         ${CMAKE_CURRENT_LIST_DIR}/.. # for our common lwipopts
         )
-target_link_libraries(sens_remote
+target_link_libraries(micro_mon
     hardware_adc
-    pico_cyw43_arch_lwip_poll
     pico_stdlib
     pico_multicore
 )
 
-pico_add_extra_outputs(sens_remote)
+pico_add_extra_outputs(micro_mon)

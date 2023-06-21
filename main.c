@@ -1,7 +1,6 @@
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 #include "pico/binary_info.h"
-#include "pico/cyw43_arch.h"
 #include "pico/multicore.h"
 
 #include <stdio.h>
@@ -9,30 +8,14 @@
 #include <time.h>
 
 #include "sensor_remote.h"
+#include "RP2040-Zero_led.h"
 
-#define HAVE_WIFI
-
-#ifdef HAVE_WIFI
-	#define SET_LED(x) cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, x)
-#else
-	#define LED_PIN 25
-	#define SET_LED(x) gpio_put(LED_PIN, x);
-#endif
+//#define LED_PIN 25 // For plain vanila pi picoo (not W)
+#define LED_PIN 16 // for Pico RP2040-Zero
+#define SET_LED(x) gpio_put(LED_PIN, x);
 
 
-typedef struct {
-    void * arg;
-    char * Url;
-}Req_t;
 
-static Req_t Request;         // Current request
-static Req_t Request_waiting; // Plus potentially one queued.
-
-static bool HavePzem = false;
-
-#define IpRefreshInterval (6*3600*(int64_t)1000000); // Six hours.
-//#define IpRefreshInterval (2*60*(int64_t)1000000); // 2 minutes
-static absolute_time_t NextIpRefresh = IpRefreshInterval;
 
 //====================================================================================
 // Process character from stdin (via usb serial)
@@ -43,43 +26,7 @@ void process_stdin_char(int c)
 
 	if (c == 'b'){
 		printf("Built: "__DATE__" "__TIME__"\n");
-		printf("Next ip refresh at %d minutes up\n",(int)(NextIpRefresh/(1000000*60)));
 	}
-}
-
-
-//====================================================================================
-// Handle request received thru tcp_server.c module
-//====================================================================================
-int QueueRequest(void * arg, char * Url)
-{
-    printf("Queue request: %s\n", Url);
-
-    // Send build and uptime right away (no need to wait on that)
-    char UpStr[40];
-    sprintf(UpStr, "Built="__DATE__", Up=%dm\n",(int)(get_absolute_time()/(1000000*60)));
-    SendResponse(arg,UpStr,-1);
-
-    if (Request_waiting.arg == NULL){
-        Request_waiting.arg = arg;
-        Request_waiting.Url = Url;
-    }else{
-        // Busy plus one queued, don't handle it.
-        TCP_EnqueueForSending(arg, "busy\n",5, 1);
-    }
-
-}
-
-//====================================================================================
-// Send response back to tcp_server.c module
-//====================================================================================
-void SendResponse(void * arg, char * ResponseStr, int len)
-{
-    if (arg){
-        printf("SEND:%s\n",ResponseStr);
-        if (len < 0) len = strlen(ResponseStr);
-        TCP_EnqueueForSending(arg, ResponseStr, len, 0);
-    }
 }
 
 
@@ -95,15 +42,6 @@ static void my_periodic(void)
         printf("Main loop dealy %5.2fms\n",Delay/1000.0);
     }
     LastTime = NewTime;
-   
-    int64_t ToIpRefresh = NextIpRefresh-NewTime;
-    //printf("ToIpRefresh = %d sec",(int)(ToIpRefresh>>20));
-    if (ToIpRefresh < 0){
-        printf("Refreshing IP addr========\n");
-        tcp_server_refresh_addr();
-        NextIpRefresh = NewTime+IpRefreshInterval;
-    }
-        
     
 }
 
@@ -113,7 +51,6 @@ static void my_periodic(void)
 void my_sleep_ms(int ms)
 {
     while (1){
-        cyw43_arch_poll();
         my_periodic();
         if (ms <= 0) break;
         int ms_do = ms > 10 ? 10 : ms;
@@ -127,18 +64,34 @@ void my_sleep_ms(int ms)
 //====================================================================================
 int main() {
 
-    bi_decl(bi_program_description("Sensor remote"));
+    bi_decl(bi_program_description("RP2040-Zero"));
     stdio_init_all();
 
-#ifdef HAVE_WIFI
-    if (cyw43_arch_init()) {
-        printf("failed to initialise cyw43\n");
-        //return 1;
-    }
-#else
     gpio_init(LED_PIN);
     gpio_set_dir(LED_PIN, GPIO_OUT);
-#endif
+
+
+    while (1) {
+		printf("green\n");
+		int time1 = (int)get_absolute_time();
+        sendRGB(0x060000); // Example: Send full red, no green, no blue
+		int time2 = (int)get_absolute_time();
+		printf("send took %d us\n",time2-time1);
+        sleep_ms(500); // Just delay for a while
+
+		time1 = (int)get_absolute_time();
+		time2 = (int)get_absolute_time();
+		printf("nothing took %d us\n",time2-time1);
+
+		
+		printf("red ");
+        sendRGB(0x006000); // Example: Send full red, no green, no blue
+        sleep_ms(500); // Just delay for a while
+
+		printf("blue\n");
+        sendRGB(0x000060); // Example: Send full red, no green, no blue
+        sleep_ms(2000); // Just delay for a while
+    }
 
     multicore_launch_core1(core1_entry);
 
@@ -151,11 +104,6 @@ int main() {
     }
     printf("====================================================\n");
 
-#ifdef HAVE_WIFI
-    tcp_server_setup();
-#endif
-
-    HavePzem = PzemInit();
 
     printf("starting main loop\n");
 
@@ -164,19 +112,55 @@ int main() {
         int c =  getchar_timeout_us(0);
         if (c > 0) process_stdin_char(c);
 
-        if (Request.arg == NULL && Request_waiting.arg){
-            // Dequeue to handle.
-            Request = Request_waiting;
-            Request_waiting.arg = NULL;
-        }
+    }
+}
 
-        if (Request.arg){
-            printf("process request\n");
-            GetAnemometerFrequency(Request.arg);
-            if (HavePzem) PzemReport(Request.arg);
-            ds18b20_read_sesnors(Request.arg);
-            TCP_EnqueueForSending(Request.arg, "end\n",4, 1); // Indicate end of stuff to send.
-            Request.arg = NULL;
-        }
+
+//============================================================================================
+/*
+#define LED_PORT   PORTB
+#define LED_DDR    DDRB
+
+static void sendBit(bool bitVal) {
+    if (bitVal) { // 1 bit
+		SET_LED(1);
+        _delay_us(0.8);
+		SET_LED(0);
+        _delay_us(0.45);
+    } else { // 0 bit
+        SET_LED(1);
+        _delay_us(0.4);
+		SET_LED(0);
+        _delay_us(0.85);
+    }
+}
+
+static void sendByte(unsigned char byte) {
+    for (unsigned char bit = 0; bit < 8; bit++) {
+        sendBit((byte & (1 << (7 - bit))));
+    }
+}
+
+void cycle_loop(int cycles)
+{
+}
+*/
+
+int xmain(void) {
+    gpio_init(LED_PIN);
+    gpio_set_dir(LED_PIN, GPIO_OUT);
+
+    while (1) {
+		printf("red");
+        sendRGB(0xff0000); // Example: Send full red, no green, no blue
+        sleep_ms(500); // Just delay for a while
+		
+		printf("green");
+        sendRGB(0x00ff00); // Example: Send full red, no green, no blue
+        sleep_ms(500); // Just delay for a while
+
+		printf("blue");
+        sendRGB(0x0000ff); // Example: Send full red, no green, no blue
+        sleep_ms(500); // Just delay for a while
     }
 }

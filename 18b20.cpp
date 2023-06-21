@@ -154,10 +154,4 @@ extern "C" void ds18b20_read_sesnors(void * arg)
         str_index += 9;
     }
     //printf("res=>>%s<<\n",ResponseStr);
-
-
-    if (arg){
-        // Request came from a TCP connection.
-        SendResponse(arg, ResponseStr, str_index);
-    }
 }

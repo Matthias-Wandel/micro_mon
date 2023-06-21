@@ -1,0 +1,1 @@
+void sendRGB(unsigned int RGBValue);

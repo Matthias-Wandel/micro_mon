@@ -36,7 +36,6 @@ void GetAnemometerFrequency(void * arg)
     char ReportStr[50];
     sprintf(ReportStr,"Anm_freq=%5.1f\n",tot/(float)num_average);
     printf("Report: %s",ReportStr);
-    if (arg) SendResponse(arg, ReportStr, strlen(ReportStr));
 }
 
 
