@@ -1,0 +1,89 @@
+Set up pico development undder WSL
+
+Takes about 10 gigs
+
+https://learn.pimoroni.com/article/pico-development-using-wsl
+
+Install wsl:
+From command line:
+	wsl  -- install =d Ubuntu
+This installs ubuntu.
+
+Installing the development environment:
+	sudo apt update
+	sudo apt install git cmake gcc-arm-none-eabi 
+	sudo apt install libnewlib-arm-none-eabi build-essential libstdc++-arm-none-eabi-newlib
+
+Installing the Pico repositories
+	cd ~/
+	mkdir pico
+	cd pico
+	git clone -b master https://github.com/raspberrypi/pico-sdk.git --recursive
+	git clone -b master https://github.com/raspberrypi/pico-examples.git
+
+
+in .bashrc. add the following
+	export PICO_SDK_PATH=/home/mwandel/pico/pico-sdk
+	export PICO_BOARD=pico_w
+	export WIFI_SSID="82 starwood"
+	export WIFI_PASSWORD=6132266151
+
+Building the examples
+	cd ~/pico/pico-examples
+	mkdir build
+	cd build
+	cmake ..
+	make
+
+
+Get picotool
+	git clone https://github.com/raspberrypi/picotool.git
+	sudo apt-get install libusb-1.0-0-dev
+	cd picotool
+	mkdir build
+
+But need libusb.  don't know what pkgconf does, but it made it work.
+	sudo apt-get install libusb-dev
+	sudo apt install pkgconf
+	pkg-config libusb-1.0 --libs --cflags
+	
+Then build picotool:
+	cd ~/pico/picotool
+	mkdir build
+	cd build
+	cmake ..
+	make
+
+But this didn't work due to unable to initialize libUSB.  gave up on that.
+But was able to download windows picotool
+https://sourceforge.net/projects/rpi-pico-utils/
+But unfortuantely this can't force a reboot like the one on the raspberry pi can
+This makes it much less useful
+
+
+
+
+
+
+
+Hard drive sapce used up from all this:
+171,380,236,288 bytes free
+Installed wsl
+168,962,285,568 bytes free
+sudo apt install git cmake
+168,570,847,232 bytes free
+sudo apt install gcc-arm-none-eabi
+sudo apt install libnewlib-arm-none-eabi
+165,991,014,400
+sudo apt install build-essential
+sudo apt install libstdc++-arm-none-eabi-newlib
+165,956,538,368 bytes free
+5.5 gigs used!
+
+git clone -b master https://github.com/raspberrypi/pico-sdk.git --recursive
+
+
+162,131,333,120 bytes free
+
+
+export PICO_SDK_PATH=/home/mwandel/pico/pico-sdk
