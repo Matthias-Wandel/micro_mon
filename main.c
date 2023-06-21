@@ -71,11 +71,6 @@ int main() {
         printf("send took %d us\n",time2-time1);
         sleep_ms(500); // Just delay for a while
 
-        time1 = (int)get_absolute_time();
-        time2 = (int)get_absolute_time();
-        printf("nothing took %d us\n",time2-time1);
-
-
         printf("green\n");
         RGB_set(0x060000); // Send green
         
@@ -83,7 +78,11 @@ int main() {
 
         printf("blue\n");
         RGB_set(0x000060); // Send blue
-        sleep_ms(2000); // Just delay for a while
+        
+        sleep_ms(500); // Just delay for a while
+        RGB_set(0x000000); // Send blue
+        
+        sleep_ms(1000); // Just delay for a while
     }
 
     multicore_launch_core1(core1_entry);
