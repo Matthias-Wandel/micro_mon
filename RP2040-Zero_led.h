@@ -1,1 +1,2 @@
-void sendRGB(unsigned int RGBValue);
+void RGB_init(void);
+void RGB_set(unsigned int RGBValue);
