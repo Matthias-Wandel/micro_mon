@@ -20,6 +20,9 @@ void process_stdin_char(int c)
     if (c == 'b'){
         printf("Built: "__DATE__" "__TIME__"\n");
     }
+    if (c == 'a'){
+        adc_main();
+    }
 }
 
 
@@ -63,47 +66,35 @@ int main() {
     RGB_init();
 
 
-    while (1) {
-        printf("red\n");
-        int time1 = (int)get_absolute_time();
-        RGB_set(0x006000); // Send red
-        int time2 = (int)get_absolute_time();
-        printf("send took %d us\n",time2-time1);
-        sleep_ms(500); // Just delay for a while
+    printf("red\n");
+    //int time1 = (int)get_absolute_time();
+    RGB_set(0x006000); // Send red
+    //int time2 = (int)get_absolute_time();
+    //printf("send took %d us\n",time2-time1);
+    sleep_ms(500); // Just delay for a while
+    printf("green\n");
+    RGB_set(0x060000); // Send green
+    sleep_ms(500); // Just delay for a while
+    printf("blue\n");
+    RGB_set(0x000060); // Send blue
+    sleep_ms(500); // Just delay for a while
+    printf("green\n");
+    RGB_set(0x060000); // Send green
 
-        printf("green\n");
-        RGB_set(0x060000); // Send green
-        
-        sleep_ms(500); // Just delay for a while
-
-        printf("blue\n");
-        RGB_set(0x000060); // Send blue
-        
-        sleep_ms(500); // Just delay for a while
-        RGB_set(0x000000); // Send blue
-        
-        sleep_ms(1000); // Just delay for a while
-    }
-
-    multicore_launch_core1(core1_entry);
-
-    for (int n=1;n>=0;n--){
-        sleep_ms(500);
-        RGB_set(0x060606);
-        sleep_ms(500);
-        RGB_set(0x000000);
-        printf("Starting in %d abs:%d\n",n, get_absolute_time());
-    }
-    printf("====================================================\n");
-
+    //multicore_launch_core1(core1_entry);
 
     printf("starting main loop\n");
 
+    int green_val = 0;
     while (1){
         my_sleep_ms(20);
         int c =  getchar_timeout_us(0);
         if (c > 0) process_stdin_char(c);
 
+        // Show sign of life.
+        green_val += 1;
+        RGB_set(green_val << 16);
+        if (green_val > 32) green_val = 0;
     }
 }
 
