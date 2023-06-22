@@ -24,6 +24,13 @@ static void printhelp() {
 
 //void __not_in_flash_func(adc_capture)(uint16_t *buf, size_t count) {
 static void adc_capture(uint16_t *buf, size_t count) {
+
+//https://github.com/raspberrypi/pico-examples/blob/master/adc/dma_capture/dma_capture.c
+// Line 69]
+// set adc_set_clkdiv -- 48 mhz clock, want 20 samples per 60 hz cycles
+// so should set divisor to 40,000?  Or just time it via the CPU.
+
+
     adc_fifo_setup(true, false, 0, false, false);
     adc_run(true);
     for (int i = 0; i < count; i = i + 1)
@@ -33,9 +40,12 @@ static void adc_capture(uint16_t *buf, size_t count) {
 }
 
 
-int adc_main(void) {
+int adc_main(void)
+{
     adc_init();
     adc_set_temp_sensor_enabled(true);
+
+    const float conversion_factor = 3.3f / (1 << 12);
 
     // Set all pins to input (as far as SIO is concerned)
     gpio_set_dir_all_bits(0);
@@ -56,42 +66,55 @@ int adc_main(void) {
         char c = getchar();
         printf("%c", c);
         switch (c) {
-            case 'c':
-                c = getchar();
-                printf("%c\n", c);
-                if (c < '0' || c > '7') {
-                    printf("Unknown input channel\n");
-                    printhelp();
-                } else {
-                    adc_select_input(c - '0');
-                    printf("Switched to channel %c\n", c);
-                }
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+                adc_select_input(c - '0');
+                printf("Switched to channel %c\n", c);
                 break;
+
             case 's': {
                 uint32_t result = adc_read();
-                const float conversion_factor = 3.3f / (1 << 12);
-                printf("\n%d -> %f V\n", result, result * conversion_factor);
+                                printf("\n%d -> %f V\n", result, result * conversion_factor);
                 break;
             }
-            case 'S': {
+            case 'S':
+            case 'm': {
                 #define N_SAMPLES 1000
                 uint16_t sample_buf[N_SAMPLES];
                 printf("\nStarting capture %d samples\n",N_SAMPLES);
                 absolute_time_t start, end;
 
                 start = get_absolute_time();
-                adc_capture(sample_buf, N_SAMPLES); // Gets about 500k samples per seconds
+                if (c == 'S'){
+                    adc_capture(sample_buf, N_SAMPLES); // Gets about 500k samples per seconds
+                }else{
+                    // 'm' was pressed.
+                    for (int a=0;a<1000;a++){
+                        sample_buf[a] = adc_read();
+                        sleep_ms(1);
+                    }
+                }
                 end = get_absolute_time();
 
-                printf("Time: %6.3f ms\n",(end-start)/1000.0);
+                printf("Time for 1000 samples: %6.3f ms\n",(end-start)/1000.0);
 
                 short Histogram[1<<12];
+                int sum = 0;
                 memset(Histogram, 0, sizeof(Histogram));
                 for (int i = 0; i < N_SAMPLES; i = i + 1){
+                    sum += adc_read();
                     printf("%5d", sample_buf[i]);
                     if (i % 10 == 9) printf("\n");
                     Histogram[sample_buf[i]] += 1;
                 }
+
+                float result = sum/1000.0;
+                const float conversion_factor = 3.3f / (1 << 12);
+                printf("\n1000 readings average: %fx -> %f V\n", result, result * conversion_factor);
+
+
                 int last = 0;
                 for (int i=0;i<1<<12;i++){
                     // show histogram.  it turns out values ending with 3 lsbs set are 1/2 top 1/4 as likely
@@ -108,20 +131,7 @@ int adc_main(void) {
                 }
                 break;
             }
-            case 'm': {
-                int sum = 0;
-                absolute_time_t start, end;
-                start = get_absolute_time();
-                for (int a=0;a<1000;a++){
-                    sum += adc_read();
-                }
-                end = get_absolute_time();
-                const float conversion_factor = 3.3f / (1 << 12);
-                float result = sum/1000.0;
-                printf("\n1000 readings average: %fx -> %f V\n", result, result * conversion_factor);
-                printf("Time: %6.3f ms\n",(end-start)/1000.0);
-                break;
-            }
+
             case 'w':
                 printf("\nPress any key to stop wiggling\n");
                 int i = 1;
@@ -140,7 +150,6 @@ int adc_main(void) {
                 adc_set_temp_sensor_enabled(true);
                 adc_select_input(4);
 
-                const float conversionFactor = 3.3f / (1 << 12); // 12-bit conversion, assume max value == ADC_VREF == 3.3 V
                 int adci = adc_read();
                 float adc = (float)adci * conversionFactor;
                 float tempC = 27.0f - (adc - 0.706f) / 0.001721f;
@@ -151,15 +160,13 @@ int adc_main(void) {
             case 'x':
                 return 0;
 
-
             case '\n':
             case '\r':
                 break;
-            case 'h':
-                printhelp();
-                break;
             default:
                 printf("\nUnrecognised command: %c\n", c);
+            case 'h':
+                printhelp();
                 printhelp();
                 break;
         }
