@@ -14,6 +14,7 @@ pico_sdk_init()
 add_executable(micro_mon
     main.c
     adc.c
+	core1.c
 	RP2040-Zero_led.c
 )
 pico_enable_stdio_usb(micro_mon 1)

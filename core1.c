@@ -4,90 +4,54 @@
 #include "pico/multicore.h"
 
 #include <stdio.h>
-#include <memory.h>
+#include <math.h>
 #include <time.h>
-
 #include "micro_mon.h"
 
-#define TRANS_COUNT_SIZE 64 // Must be a power of two.
-
-#define ANEMOMETER_PIN 18
-
-static int TransCounts[TRANS_COUNT_SIZE]; //Transition counts, half second bins.
-static int TransWriteIndex = 0;
-
 //====================================================================================
-// Work out anemometer frequency.
+// Second core code -- Keeps a tally of current
 //====================================================================================
-void GetAnemometerFrequency(void * arg)
-{
-    int index = TransWriteIndex;
-    int tot = 0;
-	const int num_average = 40; // 20 seconds worth.
-
-    for (int a=0;a<num_average;a++){ //Total counts for number of bins.
-        int ri = (index-1-a) & (TRANS_COUNT_SIZE-1);
-        #if REPORT_STR
-            printf("t(%d)=%d ",ri,TransCounts[ri]);
-        #endif
-        tot += TransCounts[ri];
-    }
-    //printf("Transitons = %d\n",tot);
-    char ReportStr[50];
-    sprintf(ReportStr,"Anm_freq=%5.1f\n",tot/(float)num_average);
-    printf("Report: %s",ReportStr);
-}
-
-
-//====================================================================================
-// Second core code -- runs tight timing stuff.
-//====================================================================================
-volatile int core2count = 0;
+static int running_average = (2048*4) << 16; // Start running average at mid-point
+static unsigned variance_running = 0;
 void core1_entry()
 {
-    
-    gpio_set_dir(ANEMOMETER_PIN, GPIO_IN);
-
-    static int NextSecond;
-    NextSecond = get_absolute_time();
-
-    int Transitions = 0;
-    int PrevState = 0;
-
-    #if REPORT_STR
-        char report[200];
-        int NumReport = 0;
-    #endif
-
-    printf("Core 2 in");
-    for(;;){
-        sleep_ms(1);
-        core2count += 1;
-        int state = gpio_get(ANEMOMETER_PIN);
-        if (state != PrevState){
-            PrevState = state;
-            Transitions += 1;
-        }
-        #if REPORT_STR
-            if (NumReport < sizeof(report)-1) report[NumReport++] = state ? '1' : ' ';
-        #endif
-
-        //printf("C=%4d A=%d\n",core2count,gpio_get(ANEMOMETER_PIN));
-        int now = get_absolute_time();
-        if (now-NextSecond > 0){
-            #if REPORT_STR
-                report[NumReport] = 0;
-                report[70] = 0;
-                printf("%s %d\n", report,Transitions);
-                NumReport = 0
-            #endif
-            TransCounts[TransWriteIndex] = Transitions;
-            TransWriteIndex = (TransWriteIndex+1) & (TRANS_COUNT_SIZE-1);
-            //printf("WriteIndex = %d\n",TransWriteIndex);
-            Transitions = 0;
-            NextSecond = now + 500000; // Half seconds, actually.
+    adc_init();
+    adc_select_input(1);
+    printf("adc check: %d\n",adc_read());
+    int a = 0;
+    for (;;a++){
+        int adc = 0;
+        for (int n=0;n<4;n++){
+            // Average 4 samples.  this provides some amount of low-pass filtering.
+            adc = adc + adc_read();
+            sleep_ms(1);
         }
 
-        //if ((core2count & 4095) == 0) GetAnemometerFrequency(NULL); // Test it.
+        //printf("%04d ",adc); // adc is in 4x actual ADC values.  Don't divide back down for extra integer precision.
+
+        running_average = running_average + (adc << 8) - (running_average >> 8); // Averaging time constant is 256 readings
+
+        int deviation = adc-(running_average>>16);  // This can get to 8000
+        int variance = (deviation*deviation)>>4;    // This number can get to 4 million regularly
+        if (variance > 4000000) variance = 4000000; // Avoid overflows.
+
+        variance_running = variance_running + (variance << 2) - (variance_running >> 6); // Averaging time constant is 64 readings.
+        //  variance_running is 256 times actual A/D values variance
+
+        if ((a & 1023) == 0){
+            printf("adc_avg=%4d var_run=%d stdef=%5.1f\n",running_average>>18, variance_running>>10, sqrt(variance_running)/16);
+        }
     }
 }
+
+//====================================================================================
+// Return current current tally
+//====================================================================================
+float GetCurrent(void)
+{
+    return sqrt(variance_running)/16;
+}
+
+
+
+
