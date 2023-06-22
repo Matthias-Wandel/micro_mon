@@ -7,7 +7,7 @@
 #include <memory.h>
 #include <time.h>
 
-#include "sensor_remote.h"
+#include "micro_mon.h"
 
 #define TRANS_COUNT_SIZE 64 // Must be a power of two.
 
