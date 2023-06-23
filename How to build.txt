@@ -1,0 +1,18 @@
+How to build the microwave monitoring project:
+Assuming command line based development environment is set up on linux.
+
+Go into the build directory
+	cd build	
+
+Generate the makefiles
+	cmake ..
+	
+Build it
+	make
+	
+Load it using picotool (from raspiberry pi 4)
+	sudo ./load.sh
+	
+Debugging monitoring (from raspberry pi 4)
+	cd ..
+	./com.sh
