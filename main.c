@@ -1,3 +1,13 @@
+//====================================================================================
+// Microwave monitoring main module
+// Monitors current going into microwave oven with a current transformers,
+// alerts if food is possiblyu left inside the microwave after cooking.
+//
+// This runs on a Wavershare RPI2040-Zero
+// could run on a regular pi PICO just fine, but the colour LED indication
+// would not be there because the color LED is only on th RPI2040-Zero
+//====================================================================================
+
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 #include "pico/binary_info.h"
@@ -38,6 +48,7 @@ void DoAlertBeep(void)
     }
 }
 
+// Microwave states, based on power consumption
 #define ST_DONE           0
 #define ST_DOOR_OPEN      1
 #define ST_MICROWAVING    2
@@ -57,15 +68,15 @@ void MicrowaveMonitor(void)
         float current = GetCurrent();
 
         if (current > 30){
-            // Microwaving.
+            // Microwaving (or at least fan running)
             CurrentState = ST_MICROWAVING;
             RGB_set(0x006000); // Show red.
-        }else if (current > 4){
-            // Door open.
+        }else if (current > 5.0){
+            // Microwave door is open
             CurrentState = ST_DOOR_OPEN;
             RGB_set(0x204000); // Show yellow.
         }else{
-            // Light off.
+            // Microwave idle (door closed, not microwaving)
             CurrentState = ST_DONE;
             RGB_set(0x000020); // Show blue.
         }
@@ -74,7 +85,7 @@ void MicrowaveMonitor(void)
 
         if (CurrentState == LastState){
             in_state_count += 1;
-            if (in_state_count == 5){
+            if (in_state_count == 7){
                 if (CurrentState == ST_MICROWAVING) food_in_microwave = true;
                 if (CurrentState == ST_DOOR_OPEN && food_in_microwave){
                     printf("Food was taken out\n");
@@ -87,11 +98,11 @@ void MicrowaveMonitor(void)
                     printf("blink red\n");
                      RGB_set(0x00B000);
                 }
-                if (in_state_count % 19 == 0){
+                if (in_state_count % 60 == 0){ 
+					// roughly every 30 seconds, aert that food is left in the microwave.
                     printf("Take out the food\n");
                     DoAlertBeep();
                     skip_delay = true;
-                    // Do alerts!
                 }
             }
         }else{
@@ -102,9 +113,11 @@ void MicrowaveMonitor(void)
 
         int c =  getchar_timeout_us(0);
         if (c == 'x'){
+			// if x is pressed on sria, go to diagnostics console
             printf("Back to test menu\n");
             return;
         }
+		
         if (skip_delay){
             skip_delay = false;
             continue;
@@ -127,9 +140,6 @@ void process_stdin_char(int c)
             break;
         case 'a':
             adc_main();
-            break;
-        case 'c':
-            CurrentMeasure();
             break;
         case 'l':
             //Beep
@@ -167,6 +177,7 @@ int main()
     sleep_ms(500);
     RGB_set(0x000000); // black
     sleep_ms(500);
+	
     MicrowaveMonitor();
 
     printf("Entering test menu\n");

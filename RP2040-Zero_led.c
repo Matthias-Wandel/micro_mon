@@ -1,9 +1,16 @@
+//====================================================================================
+// Code to run on the second core.
+//
+// Rather than figuring out how to have the A/D converter convert into memory
+// in the background, I just dedicate the second core to reading the A/D converter
+// and keeping an up to date current level that can be polled via GetCurrent()
+//====================================================================================
+
 #include "RP2040-Zero_led.h"
 #include "hardware/gpio.h"
 #include "hardware/sync.h"
 
 #define LED_PIN 16 // for Pico RP2040-Zero fancy RGB led
-//#define LED_PIN 0 // for Pico RP2040-Zero fancy RGB led
 //====================================================================================
 // Initialize RGB led
 //====================================================================================
@@ -27,7 +34,7 @@ static void delay_loop(volatile uint32_t count) {
 }
 
 //====================================================================================
-// Send to the RGB LED on pi pico..  This function should take a total of 30 microseconds.
+// Send to the RGB LED on pi pico..  This function should take a total of 80 microseconds.
 //====================================================================================
 void RGB_set(unsigned int RGBValue)
 {
@@ -52,5 +59,9 @@ void RGB_set(unsigned int RGBValue)
         RGBValue <<= 1;
     }
     restore_interrupts(interrupt_was);
-    //delay_loop(3000); // 50 miroseconds would actually be enough delay.
+	
+	// Need 50 microseconds after sending stuff to LED, otherwise
+	// LED assumes it is to pass on the next bits to the next LED in the chain.
+	// This delay is unnecessary if we can assume this code won't be called again immediately.
+    delay_loop(2000);
 }

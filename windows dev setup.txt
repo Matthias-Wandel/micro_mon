@@ -1,8 +1,16 @@
-Set up pico development undder WSL
+Set up raspberry pi pico command line based development on windows, using
+"windows system for linux" (wsl).
 
-Takes about 10 gigs
+This eats up about 10 gigs of hard drive space.
 
-https://learn.pimoroni.com/article/pico-development-using-wsl
+
+There are IDEs that can program the pico, such as the arduino IDE, or wven
+visual studio.  I personally just prefer doing it from the command line.
+
+-----------------------------------------------------------------------------
+
+# some useful notes
+	https://learn.pimoroni.com/article/pico-development-using-wsl
 
 Install wsl:
 From command line:
@@ -12,7 +20,8 @@ This installs ubuntu.
 Installing the development environment:
 	sudo apt update
 	sudo apt install git cmake gcc-arm-none-eabi 
-	sudo apt install libnewlib-arm-none-eabi build-essential libstdc++-arm-none-eabi-newlib
+	sudo apt install libnewlib-arm-none-eabi build-essential
+	sudo apt install libstdc++-arm-none-eabi-newlib
 
 Installing the Pico repositories
 	cd ~/
@@ -22,7 +31,7 @@ Installing the Pico repositories
 	git clone -b master https://github.com/raspberrypi/pico-examples.git
 
 
-in .bashrc. add the following
+in .bashrc. add the following (assuming PICO_W)
 	export PICO_SDK_PATH=/home/mwandel/pico/pico-sdk
 	export PICO_BOARD=pico_w
 	export WIFI_SSID="82 starwood"
@@ -35,6 +44,9 @@ Building the examples
 	cmake ..
 	make
 
+
+I was unable to get picotool working to my satisfaction, which is why I
+prefer to run the development environment on a raspberry pi 4.
 
 Get picotool
 	git clone https://github.com/raspberrypi/picotool.git
@@ -57,9 +69,12 @@ Then build picotool:
 But this didn't work due to unable to initialize libUSB.  gave up on that.
 But was able to download windows picotool
 https://sourceforge.net/projects/rpi-pico-utils/
-But unfortuantely this can't force a reboot like the one on the raspberry pi can
-This makes it much less useful
+But unfortuantely this can't force a reboot like picotool running on a
+raspbery pi 4 can do.  This makes picotool MUCH less useful under windows.
 
+You can still load code onto your pi by unplugging it and plugging it back in
+with the bootsel button held down and draggign your build .uf2 file onto the
+drive that shows up, but this is not to my liking.
 
 
 

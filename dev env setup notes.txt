@@ -1,9 +1,14 @@
-How to set up development environment:
+How to set up development environment on a raspberry pi pico
 
-Add the following lines to the end of .bashrc:
+Add the following lines to the end of your .bashrc:
+    export PICO_BOARD=pico
+
+For pico_w, add the following:
     export PICO_BOARD=pico_w
-#    export WIFI_SSID=office    --- Not sure where to set these so they actually get used!
-#    export WIFI_PASSWORD=6132266151
+    export WIFI_SSID=myssid
+    export WIFI_PASSWORD=mypassword
+	
+After adding these to your .bashrc, logout and log back in to make sure they become active.
 
 Download pico_setup.sh:
     wget https://raw.githubusercontent.com/raspberrypi/pico-setup/master/pico_setup.sh
@@ -12,15 +17,22 @@ Download pico_setup.sh:
 chmod +x pico_setup.sh
 ./pico_setup.sh
 
+If you want to run pico_setup.sh more than once (in case it was interrupted or something
+went wrong) change "mkdir" to "mkdir -p" in pico_setup.sh
 
 
-Skipping some Pico W examples as WIFI_SSID is not defined
+Loading code:
+	pico/picotool/build will contain "picotool"
+	Put this somewhere on your path to make it easy to run.
+	To load code (without having to touch the pico):
+		sudo picotool load -F my_project.uf2
+		
+	To reboot the pico after loading code:
+	    picotool reboot -F
+	
 
-
-
-Listen to USB output
-    cat /dev/ttyACM0
-        or
+Listen to USB output for debugging:
+	Install minicom (sudo apt-get install minicom)
     minicom -D /dev/ttyACM0
   
 

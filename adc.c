@@ -1,3 +1,7 @@
+//====================================================================================
+// ADC test module.  This module is just for checking the ADC converters
+// This module is not used for nomral microwave monitoring opertions
+//====================================================================================
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 #include "hardware/adc.h"
@@ -172,40 +176,4 @@ int adc_main(void)
                 break;
         }
     }
-}
-
-//====================================================================================
-// Do running current measurements
-//====================================================================================
-static int running_average = (2048*4) << 16; // Start running average at mid-point
-static unsigned variance_running = 0;
-float CurrentMeasure(void)
-{
-    adc_init();
-    adc_select_input(1);
-	int a;
-	for (a=0;a<400;a++){
-		int adc = 0;
-		for (int n=0;n<4;n++){
-			// Average 4 samples.  this provides some amount of low-pass filtering.
-			adc = adc + adc_read();
-			sleep_ms(1);
-		}
-		
-		printf("%04d ",adc); // adc is in 4x actual ADC values.  Don't divide back down for extra integer precision.
-		
-		running_average = running_average + (adc << 8) - (running_average >> 8); // Averaging time constant is 256 readings
-		
-		int deviation = adc-(running_average>>16);  // This can get to 8000
-		int variance = (deviation*deviation)>>4;    // This number can get to 4 million regularly
-		if (variance > 4000000) variance = 4000000; // Avoid overflows.
-		
-		variance_running = variance_running + (variance << 1) - (variance_running >> 7); // Averaging time constant is 128 readings.
-	    //  variance_running is 256 times actual A/D values variance
-		
-		if ((a & 7) == 7){
-			printf(" a=%4d vr=%d dv=%5.1f\n",running_average>>18, variance_running>>10, sqrt(variance_running)/16);
-		}
-	}
-	return sqrt(variance_running)/16;
 }
