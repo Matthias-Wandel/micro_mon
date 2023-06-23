@@ -6,12 +6,15 @@ wavershare RP2040-Zero.  This is essentially a smaller PCB version of the
 rapsberry pi pico, with a color LED on it.
 <p>
 The project monitors current using a current transformer feeding into the A/D converter
-on teh pico.  It can detect microwaving by the high current draw, and opening the
+on the pico.  It can detect microwaving by the high current draw, and opening the
 microwave door by the current draw from the light bulb inside the oven.
 <p>
-If somethign is microwaved, but we miss the beep for when its done and forget about
-it, this will periodically beep until the microwave door is opened to retrieve
-the food.
+If something is microwaved, but we miss the microwave oven's beep for when its done
+because the kids are making a rukus, we often forget about the food.  Our microwave
+will only beep once after its done.
+<p>
+This hack will periodically beep after microwaving until the microwave door is opened
+to retrieve the food.
 <p>
 <h1>Schematic</h1>
 <img src="schematic.jpg">
