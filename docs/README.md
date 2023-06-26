@@ -23,9 +23,9 @@ to retrieve the food.
 This relies on a command line based build environment, either running on a
 Raspberry PI 4 or under windows WSL.
 <p>
-Please see "dev env setup notes.txt" for how to set this up on a pi.
+Please see "P4 dev env setup notes.txt" for how to set this up on a pi.
 <p>
-Or see "windows dev setup.txt" for how to set up the build environment under windows.
+Or see "windows dev env setup.txt" for how to set up the build environment under windows.
 <p>
 <h1>Pieces you might want to re-use</h1>
 
