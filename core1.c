@@ -1,3 +1,10 @@
+//====================================================================================
+// Code to run on the second core.
+// Rather than figuring out how to have the A/D converter convert into memory
+// in the background, I just dedicate the second core to reading the A/D converter
+// and keeping an up to date current level that can be polled via GetCurrent()
+//====================================================================================
+
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 #include "hardware/adc.h"
@@ -39,7 +46,7 @@ void core1_entry()
         //  variance_running is 256 times actual A/D values variance
 
         if ((a & 1023) == 0){
-            printf("adc_avg=%4d var_run=%d stdef=%5.1f\n",running_average>>18, variance_running>>10, sqrt(variance_running)/16);
+            printf("adc_avg=%4d stdev=%5.1f\n",running_average>>18, sqrt(variance_running)/16);
         }
     }
 }
