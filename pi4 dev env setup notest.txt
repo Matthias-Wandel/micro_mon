@@ -10,6 +10,9 @@ For pico_w, add the following:
 	
 After adding these to your .bashrc, logout and log back in to make sure they become active.
 
+
+# I found this really useful script that is able to st up all the tools and such
+# that you need.  I recommend you use this.
 Download pico_setup.sh:
     wget https://raw.githubusercontent.com/raspberrypi/pico-setup/master/pico_setup.sh
     Change any "mkdir" to "mkdir -p" if you want to re-run the script
@@ -18,7 +21,7 @@ chmod +x pico_setup.sh
 ./pico_setup.sh
 
 If you want to run pico_setup.sh more than once (in case it was interrupted or something
-went wrong) change "mkdir" to "mkdir -p" in pico_setup.sh
+went wrong) edit the micro_setup.sh script to change instances of "mkdir" to "mkdir -p"
 
 
 Loading code:

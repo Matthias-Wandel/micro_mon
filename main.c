@@ -20,14 +20,16 @@
 #include "micro_mon.h"
 #include "RP2040-Zero_led.h"
 
+#define BEEP_PIN 14
+#define BEEP_PIN2 15
+
+static void TestMenu(void);
 //====================================================================================
-// Alert beep
+// Food left in microwave alert beep
 //====================================================================================
-void DoAlertBeep(void)
+void DoFoodBeep(void)
 {
-    printf("Alert beep!\n");
-    #define BEEP_PIN 14
-    #define BEEP_PIN2 15
+    printf("Food beep!\n");
     #define BEEP_DELAY 600
     gpio_init(BEEP_PIN);
     gpio_init(BEEP_PIN2);
@@ -48,13 +50,40 @@ void DoAlertBeep(void)
     }
 }
 
+//====================================================================================
+// Door open alert beep
+//====================================================================================
+void DoDoorBeep(void)
+{
+    printf("Door beep\n");
+    #define RBEEP_DELAY 450
+    gpio_init(BEEP_PIN);
+    gpio_init(BEEP_PIN2);
+    gpio_set_dir(BEEP_PIN, GPIO_OUT);
+    gpio_set_dir(BEEP_PIN2, GPIO_OUT);
+
+    for (int a=0;a<128*5;a++){
+        if ((a & 255) < 127){
+            gpio_put(BEEP_PIN, true);
+            gpio_put(BEEP_PIN2, false);
+        }
+        sleep_us(RBEEP_DELAY);
+
+        gpio_put(BEEP_PIN, false);
+        gpio_put(BEEP_PIN2, true);
+        sleep_us(RBEEP_DELAY);
+    }
+}
+
+
 // Microwave states, based on power consumption
 #define ST_DONE           0
 #define ST_DOOR_OPEN      1
 #define ST_MICROWAVING    2
 
 //====================================================================================
-// Monitor microwave and determine if take out food reminder is due
+// Monitor microwave and determine if food is left in the microwave and
+// reminder beek to take it out
 //====================================================================================
 void MicrowaveMonitor(void)
 {
@@ -96,15 +125,23 @@ void MicrowaveMonitor(void)
                 if ((in_state_count & 3) == 0){
                     // blink bright red -- food in microwave!
                     printf("blink red\n");
-                     RGB_set(0x00B000);
+                    RGB_set(0x00B000);
                 }
-                if (in_state_count % 60 == 0){ 
-					// roughly every 30 seconds, aert that food is left in the microwave.
+                if (in_state_count % 100 == 0){
+                    // roughly every 20 seconds, alert that food is left in the microwave.
                     printf("Take out the food\n");
-                    DoAlertBeep();
+                    DoFoodBeep();
+                    skip_delay = true;
+                }
+            }else if (CurrentState == ST_DOOR_OPEN){
+                if (in_state_count % 300 == 0){
+                    // Reminder beep that the microwave door has been left open every minute
+                    printf("Door left open\n");
+                    DoDoorBeep();
                     skip_delay = true;
                 }
             }
+
         }else{
             printf("State changed to %d\n",CurrentState);
             LastState = CurrentState;
@@ -112,12 +149,11 @@ void MicrowaveMonitor(void)
         }
 
         int c =  getchar_timeout_us(0);
-        if (c == 'x'){
-			// if x is pressed on sria, go to diagnostics console
-            printf("Back to test menu\n");
-            return;
+        if (c == 't'){
+            // if t is pressed on serial, go to diagnostics console
+            TestMenu();
         }
-		
+
         if (skip_delay){
             skip_delay = false;
             continue;
@@ -126,28 +162,64 @@ void MicrowaveMonitor(void)
     }
 }
 
+//====================================================================================
+// Show the colors on the color LED
+//====================================================================================
+void BlinkRedGreenBlue(void)
+{
+    printf("red\n");
+    RGB_set(0x006000); // Send red
+    sleep_ms(500);
+    printf("green\n");
+    RGB_set(0x060000); // Send green
+    sleep_ms(500);
+    printf("blue\n");
+    RGB_set(0x000060); // Send blue
+    sleep_ms(500);
+    RGB_set(0x000000); // black
+    sleep_ms(500);
+}
 
 //====================================================================================
 // Process character from stdin (via usb serial)
 //====================================================================================
-void process_stdin_char(int c)
+static void TestMenu(void)
 {
-    printf("Key %c, uptime: %d min\n", c, (int)(get_absolute_time()/(1000000*60)));
+    printf("Entering test menu\n");
+    printf("Built: "__DATE__" "__TIME__"\n");
+    printf("uptime: %d minutes\n",(int)(get_absolute_time()/(1000000*60)));
+    int green_val = 0;
+    while (1){
+        sleep_ms(20);
 
-    switch(c){
-        case 'b':
-            printf("Built: "__DATE__" "__TIME__"\n");
-            break;
-        case 'a':
-            adc_main();
-            break;
-        case 'l':
-            //Beep
-            DoAlertBeep();
-            break;
-        case 'm':
-            MicrowaveMonitor();
-            break;
+        int c =  getchar_timeout_us(0);
+        if (c > 0) printf("Key %c, up: %d min\n", c);
+        switch(c){
+            case 'b':
+                BlinkRedGreenBlue();
+                break;
+            case 'a':
+                // Test ADC converter
+                adc_main();
+                break;
+            case 'f':
+                //Test food beep
+                DoFoodBeep();
+                break;
+            case 'd':
+                //Test door beep
+                DoDoorBeep();
+                break;
+            case 'm':
+                // Back to microwave oven monitoring
+                printf("Back to microwave monitoring\n");
+                return;
+        }
+
+        // Show a sign of life on the LED in test mode.
+        green_val -= 1;
+        if (green_val < 0) green_val = 64;
+        RGB_set((green_val << 15) & 0xff0000);
     }
 }
 
@@ -160,38 +232,10 @@ int main()
     bi_decl(bi_program_description("RP2040-Zero"));
     stdio_init_all();
     RGB_init();
+
     multicore_launch_core1(core1_entry);
 
-    sleep_ms(500);
-    printf("Starting\n");
-    RGB_set(0x006000); // Send red
-    sleep_ms(500);
-    printf("red\n");
-    RGB_set(0x006000); // Send red
-    sleep_ms(500);
-    printf("green\n");
-    RGB_set(0x060000); // Send green
-    sleep_ms(500);
-    printf("blue\n");
-    RGB_set(0x000060); // Send blue
-    sleep_ms(500);
-    RGB_set(0x000000); // black
-    sleep_ms(500);
-	
+    BlinkRedGreenBlue();
+
     MicrowaveMonitor();
-
-    printf("Entering test menu\n");
-
-    int green_val = 0;
-    while (1){
-        sleep_ms(20);
-
-        int c =  getchar_timeout_us(0);
-        if (c > 0) process_stdin_char(c);
-
-        // Show a sign of life.
-        green_val -= 1;
-        if (green_val < 0) green_val = 64;
-        RGB_set((green_val << 15) & 0xff0000);
-    }
 }

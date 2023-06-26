@@ -36,6 +36,8 @@ void core1_entry()
 
         //printf("%04d ",adc); // adc is in 4x actual ADC values.  Don't divide back down for extra integer precision.
 
+        // Compute running average.  This will be essentially zero volts coming out of the current transformer.
+        // deviations from this value will be the AC signal.
         running_average = running_average + (adc << 8) - (running_average >> 8); // Averaging time constant is 256 readings
 
         int deviation = adc-(running_average>>16);  // This can get to 8000
