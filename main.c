@@ -100,7 +100,7 @@ void MicrowaveMonitor(void)
             // Microwaving (or at least fan running)
             CurrentState = ST_MICROWAVING;
             RGB_set(0x006000); // Show red.
-        }else if (current > 5.0){
+        }else if (current > 5.5){
             // Microwave door is open
             CurrentState = ST_DOOR_OPEN;
             RGB_set(0x204000); // Show yellow.

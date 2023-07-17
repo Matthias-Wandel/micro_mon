@@ -43,6 +43,10 @@ void core1_entry()
         int deviation = adc-(running_average>>16);  // This can get to 8000
         int variance = (deviation*deviation)>>4;    // This number can get to 4 million regularly
         if (variance > 4000000) variance = 4000000; // Avoid overflows.
+		
+		// Limit current readings to this level, otherwise exponential decay to door open
+		// level ends up taking too long
+		if (variance > 10000) variance = 10000;
 
         variance_running = variance_running + (variance << 2) - (variance_running >> 6); // Averaging time constant is 64 readings.
         //  variance_running is 256 times actual A/D values variance
