@@ -1,16 +1,12 @@
 //====================================================================================
-// Code to run on the second core.
-//
-// Rather than figuring out how to have the A/D converter convert into memory
-// in the background, I just dedicate the second core to reading the A/D converter
-// and keeping an up to date current level that can be polled via GetCurrent()
+// Code to program the LED on the Waveshare RP2040-Zero (a Raspberry pi pico variant)
 //====================================================================================
 
 #include "RP2040-Zero_led.h"
 #include "hardware/gpio.h"
 #include "hardware/sync.h"
 
-#define LED_PIN 16 // for Pico RP2040-Zero fancy RGB led
+#define LED_PIN 16 // for Pico RP2040-Zero on board fancy RGB led
 //====================================================================================
 // Initialize RGB led
 //====================================================================================
@@ -34,7 +30,7 @@ static void delay_loop(volatile uint32_t count) {
 }
 
 //====================================================================================
-// Send to the RGB LED on pi pico..  This function should take a total of 80 microseconds.
+// Send to the RGB LED on waveshare RP2040-Zero.  This function should take a total of 80 microseconds.
 //====================================================================================
 void RGB_set(unsigned int RGBValue)
 {
